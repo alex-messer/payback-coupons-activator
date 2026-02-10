@@ -8,10 +8,10 @@
     "npm": ">=9"
   },
   "bugs": {
-    "url": "https://github.com/einfachaleks/payback-coupons-activator/issues"
+    "url": "https://github.com/alex-messer/payback-coupons-activator/issues"
   },
-  "homepage": "https://github.com/einfachaleks/payback-coupons-activator#readme",
-  "author": "einfachaleks",
+  "homepage": "https://github.com/alex-messer/payback-coupons-activator#readme",
+  "author": "alex-messer",
   "keywords": [
     "payback",
     "software",
@@ -42,16 +42,6 @@
       "prettier --write src"
     ]
   },
-  "funding": [
-    {
-      "type": "individual",
-      "url": "https://buymeacoffee.com/einfachaleks"
-    },
-    {
-      "type": "individual",
-      "url": "https://paypal.me/einfachaleks"
-    }
-  ],
   "dependencies": {
     "dotenv": "^16.0.3"
   },

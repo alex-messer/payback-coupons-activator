@@ -25,7 +25,7 @@ userEmailOrId="TYPE_YOUR_ID_OR_EMAIL"
 userPassword="TYPE_YOUR_PASSWORD"
 ```
 
-### Headless vr Browser mode
+### Headless versus Browser mode
 
 By default, the script is executed in the "headless" mode, i.e. in the background.
 
@@ -41,9 +41,9 @@ npm run activatePaybackCoupons
 
 ## Contributing
 
-[Pull-Request](https://github.com/EinfachAleks/payback-coupons-activator/pulls) are welcome.
+[Pull-Request](https://github.com/alex-messer/payback-coupons-activator/pulls) are welcome.
 
-For major changes, please open an [Issue](https://github.com/EinfachAleks/payback-coupons-activator/pulls) first to discuss what you would like to change.
+For major changes, please open an [Issue](https://github.com/alex-messer/payback-coupons-activator/pulls) first to discuss what you would like to change.
 
 Please make sure to update tests as appropriate.
 
@@ -57,7 +57,7 @@ npm run activatePaybackCoupons:debug
 
 ## Fork
 
-- [KirDe](https://github.com/KirDE/payback-coupon-activator-userjs) for Browser usage with Tampermonkey or Greasemonkey.
+- [KirDe](https://github.com/KirDE/payback-coupon-activator-userjs) for Browser usage with [tampermonkey](https://www.tampermonkey.net/) or Greasemonkey.
 
 ## License
 
