@@ -1,0 +1,12 @@
+services:
+  payback:
+    build: .
+    environment:
+      - DISPLAY=${DISPLAY}
+    env_file:
+      - .env
+      - .env.local
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    network_mode: host
+    restart: unless-stopped

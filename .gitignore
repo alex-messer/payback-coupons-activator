@@ -1,3 +1,4 @@
+.claude/
 node_modules/
 /test-results/
 /tests-examples/
@@ -5,3 +6,5 @@ node_modules/
 /playwright/.cache/
 
 .vscode
+.env.local
+.env

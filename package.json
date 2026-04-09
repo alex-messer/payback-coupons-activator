@@ -1,11 +1,11 @@
 {
   "name": "payback-coupons-activator",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The software is a coupon activation tool that automates the process of redeeming coupons on https://payback.de.",
   "license": "The Unlicense",
   "engines": {
-    "node": ">=18",
-    "npm": ">=9"
+    "node": ">=24",
+    "npm": ">=11"
   },
   "bugs": {
     "url": "https://github.com/alex-messer/payback-coupons-activator/issues"
@@ -25,13 +25,14 @@
   ],
   "main": "src/index.spec.ts",
   "scripts": {
-    "activatePaybackCoupons": "npx playwright test",
-    "activatePaybackCoupons:debug": "npx playwright test --debug",
+    "activatePaybackCoupons": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test",
+    "activatePaybackCoupons:headed": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test --headed",
+    "activatePaybackCoupons:debug": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test --debug",
     "check:eslint": "eslint src",
     "check:prettier": "prettier src --check",
     "lint:eslint": "eslint --fix src",
     "lint:prettier": "prettier --write src",
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{js,ts}": [
@@ -42,18 +43,17 @@
       "prettier --write src"
     ]
   },
-  "dependencies": {
-    "dotenv": "^16.0.3"
-  },
   "devDependencies": {
-    "@playwright/test": "^1.32.2",
-    "@typescript-eslint/eslint-plugin": "^5.57.1",
-    "@typescript-eslint/parser": "^5.57.1",
-    "eslint": "^8.38.0",
-    "husky": "^8.0.3",
-    "lint-staged": "^13.2.1",
-    "playwright": "^1.32.2",
-    "prettier": "^2.8.7",
-    "typescript": "^5.0.4"
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
+    "eslint": "^10.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "playwright": "^1.59.1",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2",
+    "typescript-eslint": "^8.58.1"
   }
 }

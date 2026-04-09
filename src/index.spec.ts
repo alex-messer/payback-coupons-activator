@@ -1,41 +1,42 @@
 import { test } from "@playwright/test";
-require("dotenv").config(); // eslint-disable-line @typescript-eslint/no-var-requires
+import { LoginPage } from "./pages/login.page";
+import { CouponPage } from "./pages/coupon.page";
+import { TelegramService } from "./services/telegram.service";
 
-test("active PayBack points", async ({ page }) => {
-  const payBackUrl = "https://www.payback.de";
-  const loginUrl = "/login";
-  const couponUrl = "/coupon";
+test("activate PayBack coupons", async ({ page }) => {
   const userEmailOrId = process.env.userEmailOrId as string;
   const userPassword = process.env.userPassword as string;
-  const buttonType = "button";
-  const couponLocator = "pbc-coupon";
-  const onlyRelevantCookies = "Nur notwendige Cookies";
-  const stayedLoggedIn = "eingeloggt bleiben";
-  const emailOrId = "E-Mail oder Kundennummer";
-  const password = "Passwort";
-  const login = "Einloggen";
-  const activateNow = "Jetzt aktivieren";
+  const telegram = new TelegramService();
 
-  // login area
-  await page.goto(payBackUrl + loginUrl);
-  await page.getByRole(buttonType, { name: onlyRelevantCookies }).click();
-  await page.getByText(stayedLoggedIn).click();
+  try {
+    const loginPage = new LoginPage(page);
+    await loginPage.navigate();
+    await loginPage.dismissCookieConsent();
+    await loginPage.login(userEmailOrId, userPassword);
 
-  // paste email or id
-  await page.getByPlaceholder(emailOrId).click();
-  await page.getByPlaceholder(emailOrId).fill(userEmailOrId);
+    const couponPage = new CouponPage(page);
+    await couponPage.navigate();
 
-  // paste password
-  await page.getByPlaceholder(password).click();
-  await page.getByPlaceholder(password).fill(userPassword);
+    const totalBefore = await couponPage.countAvailableCoupons();
+    const activated = await couponPage.activateAllCoupons();
+    const allDone = await couponPage.hasNoCouponsLeft();
 
-  // login to page
-  await page.getByRole(buttonType, { name: login }).click();
-
-  // go to e-coupons page
-  await page.goto(payBackUrl + couponUrl);
-
-  // click every button for activating the coupons
-  for (const singleButton of await page.locator(couponLocator).getByRole(buttonType, { name: activateNow }).all())
-    await singleButton.click();
+    if (activated > 0) {
+      await telegram.send(
+        `*PAYBACK Coupons*\n${activated} Coupons aktiviert.${allDone ? "\nAlle Coupons sind jetzt aktiviert." : ""}`,
+      );
+    } else if (totalBefore === 0 || allDone) {
+      await telegram.send("*PAYBACK Coupons*\nKeine neuen Coupons vorhanden.");
+    } else {
+      await telegram.send(
+        `*PAYBACK Coupons*\n0 Coupons aktiviert, aber ${totalBefore} waren verfügbar. Mögliches Problem beim Aktivieren.`,
+      );
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await telegram.send(`*PAYBACK Coupons — Fehler*\n${message.slice(0, 500)}`);
+    throw error;
+  } finally {
+    await page.context().browser()?.close();
+  }
 });
