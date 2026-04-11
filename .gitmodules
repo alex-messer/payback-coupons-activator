@@ -1,0 +1,3 @@
+[submodule "Open-BPMN"]
+	path = Open-BPMN
+	url = git@github.com:alex-messer/Open-BPMN.git
