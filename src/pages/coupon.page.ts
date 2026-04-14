@@ -3,8 +3,6 @@ import { type Page } from "@playwright/test";
 const BASE_URL = "https://www.payback.de";
 const COUPON_PATH = "/coupons";
 const BATCH_SIZE = 35;
-const MIN_DELAY = 500;
-const MAX_DELAY = 3_000;
 
 const Selectors = {
   // eslint-disable-next-line quotes
@@ -28,8 +26,7 @@ export class CouponPage {
       await buttons.first().click();
       activated++;
 
-      const delay = MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
-      await this.page.waitForTimeout(delay);
+      await this.page.waitForTimeout(1_000);
 
       if (activated >= BATCH_SIZE) {
         await this.navigate();
