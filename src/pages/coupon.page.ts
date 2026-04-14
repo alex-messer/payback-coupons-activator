@@ -2,7 +2,7 @@ import { type Page } from "@playwright/test";
 
 const BASE_URL = "https://www.payback.de";
 const COUPON_PATH = "/coupons";
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 35;
 const MIN_DELAY = 500;
 const MAX_DELAY = 3_000;
 
@@ -21,28 +21,20 @@ export class CouponPage {
   }
 
   async activateAllCoupons(): Promise<number> {
+    const buttons = this.page.locator(Selectors.notActivatedButton);
     let activated = 0;
 
-    while (true) {
-      const buttons = this.page.locator(Selectors.notActivatedButton);
-      const count = await buttons.count();
+    while ((await buttons.count()) > 0) {
+      await buttons.first().click();
+      activated++;
 
-      if (count === 0) break;
+      const delay = MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
+      await this.page.waitForTimeout(delay);
 
-      for (let i = 0; i < count; i++) {
-        await buttons.nth(i).click();
-        activated++;
-
-        const delay = MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
-        await this.page.waitForTimeout(delay);
-
-        if (activated % BATCH_SIZE === 0) {
-          await this.navigate();
-          break;
-        }
+      if (activated >= BATCH_SIZE) {
+        await this.navigate();
+        return activated + (await this.activateAllCoupons());
       }
-
-      if (activated % BATCH_SIZE !== 0) break;
     }
 
     return activated;
