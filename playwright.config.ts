@@ -5,6 +5,11 @@ const isProduction = mode === "production";
 
 /**
  * See https://playwright.dev/docs/test-configuration.
+ *
+ * Note: the actual browser is launched by the stealth fixture
+ * (src/fixtures/stealth.fixture.ts) via `playwright-extra` so that
+ * anti-bot evasions are applied. The project entry below only sets
+ * viewport / device profile defaults.
  */
 export default defineConfig({
   testDir: "./src",
@@ -25,5 +30,5 @@ export default defineConfig({
     trace: "on-first-retry",
   },
 
-  projects: [{ name: "firefox", use: devices["Desktop Firefox"] }],
+  projects: [{ name: "chromium", use: devices["Desktop Chrome"] }],
 });

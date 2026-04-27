@@ -64,6 +64,13 @@ docker compose up --build
 
 The container runs the script once on startup and then daily at 08:00 via cron.
 
+### Bot detection & CAPTCHA handling
+
+Headless / Docker runs are more likely to trigger PayBack's reCAPTCHA v2 image challenge. Two layers mitigate this:
+
+1. **Stealth** — the browser is launched via [`playwright-extra`](https://www.npmjs.com/package/playwright-extra) + [`puppeteer-extra-plugin-stealth`](https://www.npmjs.com/package/puppeteer-extra-plugin-stealth) (Chromium only). Patches typical automation fingerprints (`navigator.webdriver`, WebRTC, etc.) to reduce the chance that a CAPTCHA is presented in the first place.
+2. **Offline solver** — when a reCAPTCHA still appears, [`recaptcha-solver`](https://www.npmjs.com/package/recaptcha-solver) uses the audio challenge and an offline Vosk speech-to-text model to solve it automatically. Requires `ffmpeg` on the system PATH (already installed in the Docker image).
+
 ## Contributing
 
 [Pull-Request](https://github.com/alex-messer/payback-coupons-activator/pulls) are welcome.

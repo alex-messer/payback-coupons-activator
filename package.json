@@ -25,9 +25,11 @@
   ],
   "main": "src/index.spec.ts",
   "scripts": {
-    "activatePaybackCoupons": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test",
-    "activatePaybackCoupons:headed": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test --headed",
-    "activatePaybackCoupons:debug": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test --debug",
+    "activatePaybackCoupons": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test src/index.spec.ts",
+    "activatePaybackCoupons:headed": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test src/index.spec.ts --headed",
+    "activatePaybackCoupons:debug": "node --env-file=.env --env-file=.env.local node_modules/.bin/playwright test src/index.spec.ts --debug",
+    "smoke": "node --env-file=.env node_modules/.bin/playwright test src/__smoke__",
+    "smoke:headed": "node --env-file=.env node_modules/.bin/playwright test src/__smoke__ --headed",
     "check:eslint": "eslint src",
     "check:prettier": "prettier src --check",
     "lint:eslint": "eslint --fix src",
@@ -52,7 +54,10 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "playwright": "^1.59.1",
+    "playwright-extra": "^4.3.6",
     "prettier": "^3.8.1",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "recaptcha-solver": "^0.3.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1"
   }

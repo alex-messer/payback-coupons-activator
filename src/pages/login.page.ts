@@ -1,4 +1,5 @@
 import { type Page } from "@playwright/test";
+import { CaptchaService } from "../services/captcha.service";
 
 const BASE_URL = "https://www.payback.de";
 const LOGIN_PATH = "/login";
@@ -14,7 +15,11 @@ const Selectors = {
 } as const;
 
 export class LoginPage {
-  constructor(private readonly page: Page) {}
+  private readonly captcha: CaptchaService;
+
+  constructor(private readonly page: Page) {
+    this.captcha = new CaptchaService(page);
+  }
 
   async navigate(): Promise<void> {
     await this.page.goto(`${BASE_URL}${LOGIN_PATH}`);
@@ -49,10 +54,20 @@ export class LoginPage {
     const passwordField = this.page.locator(Selectors.passwordInput);
     const deadline = Date.now() + CAPTCHA_TIMEOUT;
 
-    // Poll until the password field appears — user clicks "Weiter" and solves CAPTCHA manually
+    // Poll until the password field appears. When a CAPTCHA is detected,
+    // try to solve it automatically via the offline audio solver.
     while (Date.now() < deadline) {
       if (await passwordField.isVisible().catch(() => false)) {
         return;
+      }
+
+      // Auto-solve reCAPTCHA if present
+      if (await this.captcha.isPresent()) {
+        const solved = await this.captcha.solveIfPresent();
+        if (solved) {
+          await this.page.waitForTimeout(POST_CAPTCHA_DELAY);
+          continue;
+        }
       }
 
       // If the page reloaded (CAPTCHA failed), the email field is empty — re-fill it

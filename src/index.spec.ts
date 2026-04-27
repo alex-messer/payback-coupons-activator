@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { test } from "./fixtures/stealth.fixture";
 import { LoginPage } from "./pages/login.page";
 import { CouponPage } from "./pages/coupon.page";
 import { TelegramService } from "./services/telegram.service";
