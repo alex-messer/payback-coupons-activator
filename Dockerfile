@@ -1,8 +1,9 @@
 FROM node:24-bookworm-slim
 
-# Install Chromium system deps, cron and ffmpeg (required by recaptcha-solver)
+# Install Chromium system deps, cron, ffmpeg (recaptcha-solver) and tzdata
+# (required for the cron daemon to honour the TZ env var)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends cron ffmpeg \
+    && apt-get install -y --no-install-recommends cron ffmpeg tzdata \
     && rm -rf /var/lib/apt/lists/* \
     && npx -y playwright@1.59.1 install --with-deps chromium
 

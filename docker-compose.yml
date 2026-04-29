@@ -3,6 +3,7 @@ services:
     build: .
     environment:
       - DISPLAY=${DISPLAY}
+      - TZ=Europe/Berlin
     env_file:
       - .env
       - .env.local

@@ -62,7 +62,7 @@ npm run activatePaybackCoupons:debug
 docker compose up --build
 ```
 
-The container runs the script once on startup and then daily at 08:00 via cron.
+The container runs the script once on startup and then daily at 07:00 via cron.
 
 ### Bot detection & CAPTCHA handling
 
