@@ -19,7 +19,9 @@ export default defineConfig({
   },
   fullyParallel: true,
   forbidOnly: isProduction,
-  retries: isProduction ? 3 : 0,
+  // Retries disabled: rapid re-attempts make PayBack's bot detection worse,
+  // and each retry burns another captcha challenge without changing the outcome.
+  retries: 0,
   workers: 1,
   reporter: "html",
   use: {
@@ -27,8 +29,9 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
     ignoreHTTPSErrors: true,
     actionTimeout: 0,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
 
-  projects: [{ name: "chromium", use: devices["Desktop Chrome"] }],
+  projects: [{ name: "firefox", use: devices["Desktop Firefox"] }],
 });

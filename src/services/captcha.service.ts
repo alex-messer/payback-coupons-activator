@@ -1,5 +1,5 @@
 import { type Page } from "@playwright/test";
-import { exists as recaptchaExists, solve as recaptchaSolve } from "recaptcha-solver";
+import { solve as recaptchaSolve } from "recaptcha-solver";
 
 const SOLVE_OPTIONS = {
   // Small human-like delay between interactions (ms)
@@ -11,6 +11,17 @@ const SOLVE_OPTIONS = {
 } as const;
 
 const TOKEN_SELECTOR = "#g-recaptcha-response, textarea[name='g-recaptcha-response']";
+// The reCAPTCHA challenge popup iframe (audio/visual challenge). The
+// "protected by reCAPTCHA" badge iframe is a DIFFERENT element and is
+// always present on captcha-protected pages even when no challenge is open.
+const CHALLENGE_FRAME_SELECTOR =
+  "iframe[src^='https://www.google.com/recaptcha/api2/bframe'], " +
+  "iframe[src^='https://www.google.com/recaptcha/enterprise/bframe']";
+const PRESENCE_CHECK_TIMEOUT = 2_000;
+// Hard upper bound for one solve attempt. Without this, recaptcha-solver's
+// internal `waitForSelector(bframe)` inherits the page's actionTimeout (0 in
+// our config) and can hang indefinitely when no challenge popup is open.
+const SOLVE_HARD_TIMEOUT = 60_000;
 
 /**
  * Handles Google reCAPTCHA v2 challenges using an offline audio solver
@@ -21,20 +32,29 @@ const TOKEN_SELECTOR = "#g-recaptcha-response, textarea[name='g-recaptcha-respon
  * - `recaptcha-solver` package (ships a ~40 MB acoustic model)
  *
  * Behavior:
- * - `isPresent()` returns true if a reCAPTCHA iframe is attached
+ * - `isPresent()` returns true only when a challenge popup iframe is visible
+ *   (NOT just the "protected by reCAPTCHA" badge)
  * - `solveIfPresent()` returns true if a token is already set OR was obtained
  *   by solving. Returns false (without throwing) on any failure so that the
- *   caller's manual fallback path keeps working.
+ *   caller's polling loop keeps trying.
  */
 export class CaptchaService {
   constructor(private readonly page: Page) {}
 
   /**
-   * True if a reCAPTCHA iframe is attached to the current page.
+   * True if a reCAPTCHA challenge popup iframe is visible.
+   *
+   * Note: `recaptcha-solver`'s `exists()` has a bug (missing await on
+   * `page.$()`) and always returns a truthy Promise. We probe the actual
+   * challenge frame ourselves with a short bounded timeout.
    */
   async isPresent(): Promise<boolean> {
     try {
-      return await recaptchaExists(this.page);
+      await this.page
+        .locator(CHALLENGE_FRAME_SELECTOR)
+        .first()
+        .waitFor({ state: "visible", timeout: PRESENCE_CHECK_TIMEOUT });
+      return true;
     } catch {
       return false;
     }
@@ -72,7 +92,7 @@ export class CaptchaService {
     console.log("reCAPTCHA detected — attempting to solve via audio challenge...");
 
     try {
-      const ok = await recaptchaSolve(this.page, SOLVE_OPTIONS);
+      const ok = await this.solveWithHardTimeout();
       if (ok) {
         console.log("reCAPTCHA solved.");
         return true;
@@ -89,6 +109,20 @@ export class CaptchaService {
         console.error(`reCAPTCHA solve failed: ${message}`);
       }
       return false;
+    }
+  }
+
+  private async solveWithHardTimeout(): Promise<boolean> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("solve hard-timeout reached")), SOLVE_HARD_TIMEOUT);
+    });
+    try {
+      return await Promise.race([recaptchaSolve(this.page, SOLVE_OPTIONS), timeout]);
+    } finally {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
     }
   }
 }

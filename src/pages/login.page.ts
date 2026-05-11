@@ -7,6 +7,7 @@ const CAPTCHA_TIMEOUT = 120_000;
 const LOGIN_TIMEOUT = 5 * 60 * 1_000;
 const POST_CAPTCHA_DELAY = 2_000;
 const RELOAD_CHECK_INTERVAL = 1_000;
+const POST_SOLVE_SETTLE_TIMEOUT = 10_000;
 
 const Selectors = {
   acceptAllCooies: "#onetrust-accept-btn-handler",
@@ -38,10 +39,7 @@ export class LoginPage {
     await passwordField.fill(password);
     await passwordField.press("Enter");
 
-    // Wait for the full login flow to complete (including 2FA)
-    await this.page.waitForURL(url => !url.pathname.startsWith(LOGIN_PATH), {
-      timeout: LOGIN_TIMEOUT,
-    });
+    await this.waitForLoginComplete();
   }
 
   private async fillIdentification(emailOrId: string): Promise<void> {
@@ -65,7 +63,10 @@ export class LoginPage {
       if (await this.captcha.isPresent()) {
         const solved = await this.captcha.solveIfPresent();
         if (solved) {
-          await this.page.waitForTimeout(POST_CAPTCHA_DELAY);
+          // Wait for the password step to appear instead of a fixed delay.
+          // The old frame may still be attached mid-navigation; jumping straight
+          // back to captcha.isPresent() produced "Execution context was destroyed".
+          await passwordField.waitFor({ state: "visible", timeout: POST_SOLVE_SETTLE_TIMEOUT }).catch(() => {});
           continue;
         }
       }
@@ -83,5 +84,43 @@ export class LoginPage {
     }
 
     throw new Error("Timeout waiting for password step — was the CAPTCHA solved?");
+  }
+
+  // Poll for login completion (URL leaves /login) while also handling any
+  // reCAPTCHA that PayBack may inject on the password step. The plain
+  // waitForURL used previously had no captcha handling and would hit
+  // LOGIN_TIMEOUT whenever a second challenge appeared.
+  private async waitForLoginComplete(): Promise<void> {
+    const deadline = Date.now() + LOGIN_TIMEOUT;
+
+    while (Date.now() < deadline) {
+      if (!this.isOnLoginPath()) {
+        return;
+      }
+
+      if (await this.captcha.isPresent()) {
+        const solved = await this.captcha.solveIfPresent();
+        if (solved) {
+          await this.page
+            .waitForURL(url => !url.pathname.startsWith(LOGIN_PATH), { timeout: POST_SOLVE_SETTLE_TIMEOUT })
+            .catch(() => {});
+          continue;
+        }
+      }
+
+      await this.page.waitForTimeout(RELOAD_CHECK_INTERVAL);
+    }
+
+    throw new Error(
+      `Timeout waiting for login to complete — post-password CAPTCHA or 2FA? Last URL: ${this.page.url()}`,
+    );
+  }
+
+  private isOnLoginPath(): boolean {
+    try {
+      return new URL(this.page.url()).pathname.startsWith(LOGIN_PATH);
+    } catch {
+      return true;
+    }
   }
 }
