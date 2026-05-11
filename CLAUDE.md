@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project purpose
 
-Automates activating all available coupons on payback.de. Despite using Playwright Test as the runner, this is **not a test suite** — `src/index.spec.ts` is the production entry point, executed once per run (manually or via cron in Docker). Smoke tests under `src/__smoke__/` verify that supporting infrastructure (stealth fixture, captcha solver dependencies) still works, and are not part of the regular run.
+Automates activating all available coupons on payback.de. Despite using Playwright Test as the runner, this is **not a test suite** — `src/index.spec.ts` is the production entry point, executed once per run (manually or via cron in Docker). Smoke tests under `src/__smoke__/` verify that supporting infrastructure (browser fixture, captcha solver dependencies) still works, and are not part of the regular run.
 
 ## Commands
 
@@ -37,16 +37,16 @@ Husky hooks (`pre-commit` runs `lint-staged`, `commit-msg` runs commitlint with 
 
 The flow is a single Playwright test (`src/index.spec.ts`) wired together from three layers:
 
-**1. Stealth fixture** (`src/fixtures/stealth.fixture.ts`) — overrides Playwright's default browser launch. The actual Chromium is spun up via `playwright-extra` + `puppeteer-extra-plugin-stealth` so anti-bot fingerprints (`navigator.webdriver`, WebRTC, plugin list, etc.) are patched. `playwright.config.ts` only supplies viewport/device defaults; **do not** rely on its `use.headless` to launch the browser — the fixture launches its own and reads `process.env.mode === "production"` to decide headlessness. Worker-scoped, so the same browser is reused across tests in a worker.
+**1. Browser fixture** (`src/fixtures/browser.fixture.ts`) — overrides Playwright's default browser launch. **Firefox** is used (not Chromium): PayBack's reCAPTCHA scores Chromium sessions too aggressively even with stealth evasions applied, so we get further with a vanilla Firefox profile. Anti-automation prefs (`dom.webdriver.enabled`, `useAutomationExtension`, UA override) are set via `firefoxUserPrefs`. `playwright.config.ts` only supplies viewport/device defaults; **do not** rely on its `use.headless` to launch the browser — the fixture launches its own and reads `process.env.mode === "production"` to decide headlessness. Worker-scoped, so the same browser is reused across tests in a worker.
 
 **2. Page objects** (`src/pages/`) — encapsulate the two PayBack screens the script touches.
 
-- `login.page.ts`: Two-step login (identification → password). Between the two steps, PayBack may inject reCAPTCHA. `waitForPasswordStep()` polls for the password field and, on each iteration, asks `CaptchaService` to solve a captcha if one is present, and re-fills the email field if the page reloaded after a failed challenge. The login is considered complete only when the URL no longer starts with `/login` (so 2FA delays are tolerated up to `LOGIN_TIMEOUT` = 5 min).
+- `login.page.ts`: Two-step login (identification → password). Between the two steps, PayBack may inject reCAPTCHA. `waitForPasswordStep()` polls for the password field and, on each iteration, asks `CaptchaService` to solve a captcha if one is present, and re-fills the email field if the page reloaded after a failed challenge. After password submit, `waitForLoginComplete()` keeps polling because PayBack can inject **another** captcha on the password step too — a plain `waitForURL` would just sit there. Login is considered complete when the URL no longer starts with `/login` (so 2FA delays are tolerated up to `LOGIN_TIMEOUT` = 5 min).
 - `coupon.page.ts`: Activates not-yet-activated coupons identified by `data-testid="coupon-button-*-not_activated"`. After every `BATCH_SIZE` (35) clicks the page is reloaded and `activateAllCoupons()` recurses — PayBack's UI lazy-loads more coupons after a reload, so without this the loop would terminate prematurely. Returns the running total.
 
 **3. Services** (`src/services/`)
 
-- `captcha.service.ts`: Wraps the `recaptcha-solver` package (offline Vosk audio solver). **Never throws** — all errors are logged and surface as `false`, so the caller's polling loop keeps trying. Has a fast path that detects an already-set `g-recaptcha-response` token and skips solving. Requires `ffmpeg` on PATH and the Vosk model under `node_modules/recaptcha-solver/model/` (verified by `__smoke__/captcha.spec.ts`).
+- `captcha.service.ts`: Wraps the `recaptcha-solver` package (offline Vosk audio solver). **Never throws** — all errors are logged and surface as `false`, so the caller's polling loop keeps trying. Has a fast path that detects an already-set `g-recaptcha-response` token and skips solving. `isPresent()` probes the actual challenge-popup iframe (`recaptcha-solver`'s exported `exists()` is broken — missing `await` makes it always truthy). `solveIfPresent()` is bounded by a 60-s hard timeout via `Promise.race` because `actionTimeout: 0` in `playwright.config.ts` would otherwise let the solver's internal `waitForSelector` hang indefinitely when no challenge popup is open. Requires `ffmpeg` on PATH and the Vosk model under `node_modules/recaptcha-solver/model/` (verified by `__smoke__/captcha.spec.ts`).
 - `telegram.service.ts`: Optional notifier. Silently no-ops when `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are unset. Also polls `getUpdates` and deletes any messages from chat IDs other than the configured owner — this is how the bot stays effectively private without server-side ACLs.
 
 The orchestrating test (`src/index.spec.ts`) chooses the Telegram message based on three counts: `totalBefore` (available coupons before activation), `activated` (clicks performed), `allDone` (the "no coupons left" headline visible). Errors are caught, sent to Telegram (truncated), and re-thrown so Playwright marks the run failed.
@@ -63,3 +63,5 @@ The orchestrating test (`src/index.spec.ts`) chooses the Telegram message based 
 - `BATCH_SIZE = 35` in `coupon.page.ts` is empirical — PayBack throttles or stops rendering new coupons past this count without a reload. Don't raise it without testing.
 - The login `LOGIN_TIMEOUT` of 5 minutes accommodates manual 2FA. If automating in fully headless contexts where 2FA isn't possible, the run will hang until that timeout expires.
 - `playwright.config.ts` declares `fullyParallel: true` but `workers: 1` — the workflow is single-session by design (one PayBack login).
+- `retries: 0` is intentional: rapid back-to-back login attempts trigger harder bot challenges on PayBack's side. A failed run waits for the next cron tick instead of retrying immediately.
+- `actionTimeout: 0` (no per-action timeout) is intentional for slow coupon-page renders. The captcha service bounds itself separately — see its 60-s hard timeout.
