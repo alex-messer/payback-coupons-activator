@@ -1,4 +1,5 @@
 .claude/
+.planning/
 node_modules/
 /test-results/
 /tests-examples/
