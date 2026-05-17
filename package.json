@@ -46,17 +46,17 @@
     ]
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.5.0",
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.59.1",
-    "eslint": "^10.2.0",
+    "@playwright/test": "^1.60.0",
+    "eslint": "^10.4.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.4.0",
-    "playwright": "^1.59.1",
-    "prettier": "^3.8.1",
+    "lint-staged": "^17.0.5",
+    "playwright": "^1.60.0",
+    "prettier": "^3.8.3",
     "recaptcha-solver": "^0.3.0",
-    "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.1"
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.3"
   }
 }

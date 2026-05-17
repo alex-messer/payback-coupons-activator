@@ -1,22 +1,29 @@
-import { test as base, type Browser, firefox } from "@playwright/test";
+import { test as base, type Browser, type BrowserContext, firefox } from "@playwright/test";
 
-// Firefox uses about:config-style preferences rather than Chromium CLI flags
-// for anti-automation tweaks. `puppeteer-extra-plugin-stealth` was authored
-// for Chromium and crashes on Firefox (user-agent-override evasion in
-// particular), so we no longer register it here — Firefox's defaults plus
-// these prefs are what we rely on for fingerprint hardening.
+// UA pinned to the Firefox version that Playwright 1.60.x bundles (Firefox 150).
+// Keep this in sync with the Playwright pin in package.json and Dockerfile — a UA
+// that disagrees with the actual build is itself a detectable fingerprint signal.
 const FIREFOX_USER_PREFS = {
-  "dom.webdriver.enabled": false,
-  useAutomationExtension: false,
-  "general.useragent.override": "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0",
+  "general.useragent.override": "Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0",
 } as const;
 
+// Playwright ≥1.60 correctly exposes `navigator.webdriver === true` for Firefox
+// (the prior quirk that hid it was treated as a bug — see microsoft/playwright#31039).
+// `dom.webdriver.enabled` was removed in Firefox 88, so the historical pref-based
+// hide no longer exists. We patch the property per-context with an init script.
+const hideWebdriverFlag = () => {
+  Object.defineProperty(Navigator.prototype, "webdriver", {
+    get: () => false,
+    configurable: true,
+  });
+};
+
 /**
- * Playwright test fixture that launches Firefox with anti-automation prefs.
+ * Playwright test fixture that launches Firefox with anti-automation tweaks.
  * Switched from Chromium because payback.de's reCAPTCHA was scoring Chromium
  * sessions too aggressively even with stealth evasions applied.
  */
-export const test = base.extend<object, { browser: Browser }>({
+export const test = base.extend<{ context: BrowserContext }, { browser: Browser }>({
   browser: [
     // eslint-disable-next-line no-empty-pattern
     async ({}, use) => {
@@ -29,4 +36,10 @@ export const test = base.extend<object, { browser: Browser }>({
     },
     { scope: "worker" },
   ],
+  context: async ({ browser }, use) => {
+    const context = await browser.newContext();
+    await context.addInitScript(hideWebdriverFlag);
+    await use(context);
+    await context.close();
+  },
 });
