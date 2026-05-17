@@ -25,9 +25,7 @@ test("activate PayBack coupons", async ({ page }) => {
       await telegram.send(
         `*PAYBACK Coupons*\n${activated} Coupons aktiviert.${allDone ? "\nAlle Coupons sind jetzt aktiviert." : ""}`,
       );
-    } else if (totalBefore === 0 || allDone) {
-      await telegram.send("*PAYBACK Coupons*\nKeine neuen Coupons vorhanden.");
-    } else {
+    } else if (totalBefore > 0 && !allDone) {
       await telegram.send(
         `*PAYBACK Coupons*\n0 Coupons aktiviert, aber ${totalBefore} waren verfügbar. Mögliches Problem beim Aktivieren.`,
       );
