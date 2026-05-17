@@ -9,9 +9,14 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Install dependencies (cached layer)
+# Install dependencies (cached layer).
+# WORKAROUND: the recaptcha-solver postinstall downloads a Vosk model from
+# alphacephei.com, whose TLS certificate expired on 2026-05-16. npm-registry
+# packages are still safe here because npm ci verifies package-lock.json
+# integrity hashes independently of TLS. Remove the env override once the
+# upstream cert is renewed.
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npm ci
 
 # Copy only what's needed to run tests
 COPY src/ ./src/
