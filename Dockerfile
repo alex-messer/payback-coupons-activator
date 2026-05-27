@@ -5,7 +5,7 @@ FROM node:24-bookworm-slim
 RUN apt-get update \
     && apt-get install -y --no-install-recommends cron ffmpeg tzdata \
     && rm -rf /var/lib/apt/lists/* \
-    && npx -y playwright@1.60.0 install --with-deps firefox
+    && npx -y playwright@1.60.0 install --with-deps chromium
 
 WORKDIR /app
 

@@ -1,4 +1,4 @@
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 
 const { mode } = process.env;
 const isProduction = mode === "production";
@@ -6,10 +6,11 @@ const isProduction = mode === "production";
 /**
  * See https://playwright.dev/docs/test-configuration.
  *
- * Note: the actual browser is launched by the stealth fixture
- * (src/fixtures/stealth.fixture.ts) via `playwright-extra` so that
- * anti-bot evasions are applied. The project entry below only sets
- * viewport / device profile defaults.
+ * Note: the actual browser is launched by the browser fixture
+ * (src/fixtures/browser.fixture.ts) which applies anti-automation tweaks.
+ * The project entry below only declares the project name; the fixture sets
+ * UA, init scripts, and launch args so we do NOT use `devices["Desktop Chrome"]`
+ * here (that descriptor pins a Windows UA and would mismatch our Linux host).
  */
 export default defineConfig({
   testDir: "./src",
@@ -33,5 +34,5 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
 
-  projects: [{ name: "firefox", use: devices["Desktop Firefox"] }],
+  projects: [{ name: "chromium" }],
 });
