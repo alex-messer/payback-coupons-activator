@@ -58,5 +58,8 @@
     "recaptcha-solver": "^0.3.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.59.3"
+  },
+  "dependencies": {
+    "patchright": "^1.60.0"
   }
 }

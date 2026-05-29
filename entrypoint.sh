@@ -8,6 +8,12 @@ if [ -n "$TZ" ] && [ -f "/usr/share/zoneinfo/$TZ" ]; then
     echo "$TZ" > /etc/timezone
 fi
 
+# Patchright launches a headful Chrome (required for full stealth), which needs
+# an X display. Start a virtual one and export DISPLAY before the cron env is
+# captured below, so both the immediate run and the daily cron job inherit it.
+Xvfb :99 -screen 0 1280x720x24 >/var/log/xvfb.log 2>&1 &
+export DISPLAY=:99
+
 # Export current env vars so cron jobs can access them
 printenv | grep -E '^(userEmailOrId|userPassword|TELEGRAM_BOT_TOKEN|TELEGRAM_CHAT_ID|DISPLAY|mode|HOME|PATH|NODE_PATH|TZ)=' > /app/.env.cron
 

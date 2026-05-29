@@ -1,11 +1,28 @@
 FROM node:24-bookworm-slim
 
-# Install Firefox system deps, cron, ffmpeg (recaptcha-solver) and tzdata
-# (required for the cron daemon to honour the TZ env var)
+# System deps:
+# - cron / tzdata: scheduled daily run (entrypoint installs a crontab)
+# - ffmpeg: kept for the legacy recaptcha-solver smoke test
+# - libgtk-3-0, libx11-xcb1, libasound2, libdbus-glib-1-2, libxt6, xvfb,
+#   fonts-liberation: Camoufox (Firefox-fork) runtime deps. xvfb is needed
+#   because Camoufox is launched headlessly here, but its Firefox backend
+#   still touches X11 on first init.
+# Bookworm ships glibc 2.36, satisfying the `impit` native binding's glibc
+# >= 2.33 requirement. Do NOT downgrade the base image to bullseye — local
+# WSL Ubuntu 20.04 (glibc 2.31) is unsupported for the same reason.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends cron ffmpeg tzdata \
-    && rm -rf /var/lib/apt/lists/* \
-    && npx -y playwright@1.60.0 install --with-deps chromium
+    && apt-get install -y --no-install-recommends \
+        cron \
+        ffmpeg \
+        tzdata \
+        libgtk-3-0 \
+        libx11-xcb1 \
+        libasound2 \
+        libdbus-glib-1-2 \
+        libxt6 \
+        xvfb \
+        fonts-liberation \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -17,6 +34,12 @@ WORKDIR /app
 # upstream cert is renewed.
 COPY package.json package-lock.json ./
 RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npm ci
+
+# Install the real Google Chrome channel plus its system dependencies.
+# Patchright requires the Chrome channel and a headful launch for full stealth;
+# the headful browser renders on the Xvfb virtual display started by
+# entrypoint.sh.
+RUN npx patchright install --with-deps chrome
 
 # Copy only what's needed to run tests
 COPY src/ ./src/
