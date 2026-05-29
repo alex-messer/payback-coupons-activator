@@ -35,9 +35,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN NODE_TLS_REJECT_UNAUTHORIZED=0 npm ci
 
-# Fetch the Camoufox browser binary (~750 MB) into ~/.cache/camoufox. This is
-# a one-time download per image build; the binary is reused by every run.
-RUN npx camoufox-js fetch
+# Install the real Google Chrome channel plus its system dependencies.
+# Patchright requires the Chrome channel and a headful launch for full stealth;
+# the headful browser renders on the Xvfb virtual display started by
+# entrypoint.sh.
+RUN npx patchright install --with-deps chrome
 
 # Copy only what's needed to run tests
 COPY src/ ./src/

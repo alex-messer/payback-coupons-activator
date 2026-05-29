@@ -119,10 +119,26 @@ export class TurnstileService {
     const turnstileFrame = this.page.frames().find(frame => TURNSTILE_FRAME_URL_PATTERN.test(frame.url()));
     if (!turnstileFrame) return null;
 
-    const frameElement = await turnstileFrame.frameElement().catch(() => null);
-    if (!frameElement) return null;
+    let box: { x: number; y: number; width: number; height: number } | null = null;
 
-    const box = await frameElement.boundingBox().catch(() => null);
+    // Firefox exposes the iframe element to the host page, so its bounding box
+    // is directly measurable. Chromium hides the Cloudflare iframe inside a
+    // closed shadow DOM, so frameElement() returns null there.
+    const frameElement = await turnstileFrame.frameElement().catch(() => null);
+    if (frameElement) {
+      box = await frameElement.boundingBox().catch(() => null);
+    }
+
+    // Engine-agnostic fallback: measure the frame's own <body>. Playwright
+    // reports a frame-internal locator's bounding box in top-level page
+    // coordinates, which is exactly what page.mouse needs.
+    if (!box) {
+      box = await turnstileFrame
+        .locator("body")
+        .boundingBox()
+        .catch(() => null);
+    }
+
     if (!box) return null;
 
     return {

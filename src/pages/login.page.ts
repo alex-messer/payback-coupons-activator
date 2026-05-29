@@ -10,13 +10,14 @@ const RELOAD_CHECK_INTERVAL = 1_000;
 const POST_SOLVE_SETTLE_TIMEOUT = 10_000;
 
 const TURNSTILE_FAILED_MESSAGE =
-  "Cloudflare Turnstile konnte nicht gelöst werden — Camoufox-Fingerprint reicht nicht. Erwäge 2Captcha oder seed-session.";
+  "Cloudflare Turnstile konnte nicht gelöst werden — die Session wurde von Cloudflare als Bot eingestuft.";
 
 const Selectors = {
   acceptAllCooies: "#onetrust-accept-btn-handler",
   emailOrId: "E-Mail oder Kundennummer",
   passwordInput: "input[type='password']",
   weiterButton: "Weiter",
+  einloggenButton: "Einloggen",
 } as const;
 
 export class LoginPage {
@@ -42,7 +43,9 @@ export class LoginPage {
 
     const passwordField = this.page.locator(Selectors.passwordInput);
     await passwordField.fill(password);
-    await passwordField.press("Enter");
+    // The password step does NOT submit on Enter; it requires clicking the
+    // "Einloggen" button (mirrors the "Weiter" click on the identification step).
+    await this.page.getByRole("button", { name: Selectors.einloggenButton }).click();
 
     await this.waitForLoginComplete();
   }
