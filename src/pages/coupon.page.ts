@@ -2,7 +2,7 @@ import { type Page } from "@playwright/test";
 
 const BASE_URL = "https://www.payback.de";
 const COUPON_PATH = "/coupons";
-const BATCH_SIZE = 35;
+const BATCH_SIZE = 100;
 
 const Selectors = {
   // eslint-disable-next-line quotes
@@ -26,7 +26,7 @@ export class CouponPage {
       await buttons.first().click();
       activated++;
 
-      await this.page.waitForTimeout(1_000);
+      await this.page.waitForTimeout(350);
 
       if (activated >= BATCH_SIZE) {
         await this.navigate();
