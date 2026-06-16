@@ -41,8 +41,12 @@ export class LoginPage {
     await this.waitForPasswordStep(emailOrId);
     await this.page.waitForTimeout(POST_CAPTCHA_DELAY);
 
+    // Solve any Turnstile that PayBack may inject on the password step before
+    // filling — the submit button stays disabled until the token is present.
+    await this.turnstile.solveIfPresent();
+
     const passwordField = this.page.locator(Selectors.passwordInput);
-    await passwordField.fill(password);
+    await passwordField.pressSequentially(password, { delay: 50 });
     // The password step does NOT submit on Enter; it requires clicking the
     // "Einloggen" button (mirrors the "Weiter" click on the identification step).
     await this.page.getByRole("button", { name: Selectors.einloggenButton }).click();
