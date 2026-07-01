@@ -164,24 +164,21 @@ export class TurnstileService {
     await this.page.mouse.click(x, y);
   }
 
-  private async waitForTurnstileFrame(): Promise<boolean> {
-    const deadline = Date.now() + FRAME_APPEAR_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      if (await this.isPresent()) {
-        return true;
-      }
-      await this.page.waitForTimeout(FRAME_POLL_INTERVAL_MS);
-    }
-    return false;
+  private waitForTurnstileFrame(): Promise<boolean> {
+    return this.pollUntil(() => this.isPresent(), FRAME_APPEAR_TIMEOUT_MS, FRAME_POLL_INTERVAL_MS);
   }
 
-  private async waitForToken(): Promise<boolean> {
-    const deadline = Date.now() + TOKEN_POLL_TIMEOUT_MS;
+  private waitForToken(): Promise<boolean> {
+    return this.pollUntil(() => this.hasToken(), TOKEN_POLL_TIMEOUT_MS, TOKEN_POLL_INTERVAL_MS);
+  }
+
+  private async pollUntil(predicate: () => Promise<boolean>, timeoutMs: number, intervalMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
-      if (await this.hasToken()) {
+      if (await predicate()) {
         return true;
       }
-      await this.page.waitForTimeout(TOKEN_POLL_INTERVAL_MS);
+      await this.page.waitForTimeout(intervalMs);
     }
     return false;
   }
