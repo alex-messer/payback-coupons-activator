@@ -41,39 +41,21 @@ export class LoginPage {
     await this.waitForPasswordStep(emailOrId);
     await this.page.waitForTimeout(POST_CAPTCHA_DELAY);
 
-    // Solve any Turnstile that PayBack may inject on the password step before
-    // filling — the submit button stays disabled until the token is present.
-    await this.turnstile.solveIfPresent();
+    await this.turnstile.solveIfPresent(); // submit button stays disabled without a token
 
     const passwordField = this.page.locator(Selectors.passwordInput);
     await passwordField.pressSequentially(password, { delay: 50 });
-    // The password step does NOT submit on Enter; it requires clicking the
-    // "Einloggen" button (mirrors the "Weiter" click on the identification step).
-    await this.page.getByRole("button", { name: Selectors.einloggenButton }).click();
+    await this.page.getByRole("button", { name: Selectors.einloggenButton }).click(); // Enter does not submit here
 
     await this.waitForLoginComplete();
   }
 
-  /**
-   * Fill the email/customer-id field but do NOT advance. PayBack mounts the
-   * Turnstile widget after the field blurs (or Enter is pressed in
-   * `solveTurnstileAndSubmit`), so we keep the keystroke out of the
-   * identification step itself.
-   */
+  // Fills but doesn't submit — PayBack mounts Turnstile only after Enter (see solveTurnstileAndSubmit).
   private async fillIdentification(emailOrId: string): Promise<void> {
     const emailField = this.page.getByRole("textbox", { name: Selectors.emailOrId });
     await emailField.fill(emailOrId);
   }
 
-  /**
-   * Trigger Turnstile by pressing Enter on the email field, let
-   * TurnstileService run its managed click, then click "Weiter" to advance
-   * to the password step.
-   *
-   * Throws a German user-facing error when the managed click fails — German
-   * is the project's conversational language and this is the only place a
-   * hard failure surfaces to the operator.
-   */
   private async solveTurnstileAndSubmit(): Promise<void> {
     const emailField = this.page.getByRole("textbox", { name: Selectors.emailOrId });
     await emailField.press("Enter");
@@ -90,9 +72,6 @@ export class LoginPage {
     const passwordField = this.page.locator(Selectors.passwordInput);
     const deadline = Date.now() + CAPTCHA_TIMEOUT;
 
-    // Poll until the password field appears. When Turnstile re-appears on
-    // this step (observed when the first solve gets retried server-side),
-    // run the managed click again.
     while (Date.now() < deadline) {
       if (await passwordField.isVisible().catch(() => false)) {
         return;
@@ -101,18 +80,12 @@ export class LoginPage {
       if (await this.turnstile.isPresent()) {
         const solved = await this.turnstile.solveIfPresent();
         if (solved) {
-          // Wait for the password step to appear instead of a fixed delay.
-          // The old frame may still be attached mid-navigation; jumping
-          // straight back to turnstile.isPresent() produced
-          // "Execution context was destroyed" in the past.
           await passwordField.waitFor({ state: "visible", timeout: POST_SOLVE_SETTLE_TIMEOUT }).catch(() => {});
           continue;
         }
       }
 
-      // If the page reloaded (Turnstile failed), the email field is empty —
-      // re-fill it. We do NOT press Enter here because the next loop tick
-      // will detect Turnstile (or not) and decide what to do.
+      // page reloaded (Turnstile failed) → re-fill the now-empty email field, no Enter
       const emailField = this.page.getByRole("textbox", { name: Selectors.emailOrId });
       if (await emailField.isVisible().catch(() => false)) {
         const value = await emailField.inputValue().catch(() => "");
@@ -127,10 +100,7 @@ export class LoginPage {
     throw new Error("Timeout waiting for password step — was Turnstile solved?");
   }
 
-  // Poll for login completion (URL leaves /login) while also handling any
-  // Turnstile widget that PayBack may inject on the password step. The plain
-  // waitForURL used previously had no captcha handling and would hit
-  // LOGIN_TIMEOUT whenever a second challenge appeared.
+  // Polls until URL leaves /login, handling any Turnstile that appears on the password step too.
   private async waitForLoginComplete(): Promise<void> {
     const deadline = Date.now() + LOGIN_TIMEOUT;
 

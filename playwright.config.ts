@@ -3,15 +3,7 @@ import { defineConfig } from "@playwright/test";
 const { mode } = process.env;
 const isProduction = mode === "production";
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- *
- * Note: the actual browser is launched by the browser fixture
- * (src/fixtures/browser.fixture.ts) which applies anti-automation tweaks.
- * The project entry below only declares the project name; the fixture sets
- * UA, init scripts, and launch args so we do NOT use `devices["Desktop Chrome"]`
- * here (that descriptor pins a Windows UA and would mismatch our Linux host).
- */
+// Browser launch (UA, args, stealth) is handled by the browser fixture, not here.
 export default defineConfig({
   testDir: "./src",
   timeout: 10 * 60 * 1000,
@@ -20,9 +12,7 @@ export default defineConfig({
   },
   fullyParallel: true,
   forbidOnly: isProduction,
-  // Retries disabled: rapid re-attempts make PayBack's bot detection worse,
-  // and each retry burns another captcha challenge without changing the outcome.
-  retries: 0,
+  retries: 0, // rapid retries worsen bot detection
   workers: 1,
   reporter: "html",
   use: {

@@ -59,7 +59,6 @@ export class TelegramService {
       if (!msg) continue;
 
       if (String(msg.chat.id) !== this.ownerChatId) {
-        // Delete message from unauthorized user
         await fetch(`${TELEGRAM_API}/bot${this.botToken}/deleteMessage`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -70,8 +69,7 @@ export class TelegramService {
         });
       }
 
-      // Acknowledge update so it's not processed again
-      await fetch(`${TELEGRAM_API}/bot${this.botToken}/getUpdates?offset=${update.update_id + 1}`);
+      await fetch(`${TELEGRAM_API}/bot${this.botToken}/getUpdates?offset=${update.update_id + 1}`); // ack, don't reprocess
     }
   }
 }

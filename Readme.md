@@ -1,6 +1,6 @@
 # PayBack Coupons Activator
 
-The software is a coupon activation tool that automates the process of redeeming coupons on [PayBack](https://payback.de). With this software, users can easily activate all their available coupons with just a few clicks, eliminating the need for manual input and saving time. The software is designed to be user-friendly and easy to operate, making it accessible to individuals with varying levels of technical expertise. Users can simply input their login credentials and select the coupons they want to activate, and the software will handle the rest.
+The software is a coupon activation tool that automates the process of redeeming coupons on [PayBack](https://payback.de). Provide your login credentials and run the script — it logs in and activates every available coupon automatically, no manual clicking or selection required.
 
 ## Installation
 
@@ -30,24 +30,18 @@ TELEGRAM_BOT_TOKEN="YOUR_TELEGRAM_BOT_TOKEN"
 TELEGRAM_CHAT_ID="YOUR_TELEGRAM_CHAT_ID"
 ```
 
-| Variable             | Description                                                                  |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `mode`               | `production` (headless) or `debug`                                           |
-| `userEmailOrId`      | Your PayBack email or customer number                                        |
-| `userPassword`       | Your PayBack password                                                        |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot API token (optional, from [@BotFather](https://t.me/BotFather)) |
-| `TELEGRAM_CHAT_ID`   | Your Telegram chat ID (optional, for notifications)                          |
+| Variable             | Description                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `mode`               | `production` enables Playwright's `forbidOnly` check; the browser always runs headful either way |
+| `userEmailOrId`      | Your PayBack email or customer number                                                            |
+| `userPassword`       | Your PayBack password                                                                            |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot API token (optional, from [@BotFather](https://t.me/BotFather))                     |
+| `TELEGRAM_CHAT_ID`   | Your Telegram chat ID (optional, for notifications)                                              |
 
 ### Run
 
 ```sh
 npm run activatePaybackCoupons
-```
-
-### Headed mode (visible browser)
-
-```sh
-npm run activatePaybackCoupons:headed
 ```
 
 ### Debugging
@@ -56,20 +50,11 @@ npm run activatePaybackCoupons:headed
 npm run activatePaybackCoupons:debug
 ```
 
-### Docker
-
-```sh
-docker compose up --build
-```
-
-The container runs the script once on startup and then daily at 07:00 via cron.
-
 ### Bot detection & CAPTCHA handling
 
-Headless / Docker runs are more likely to trigger PayBack's reCAPTCHA v2 image challenge. Two layers mitigate this:
+PayBack's login is gated by a Cloudflare Turnstile widget. The browser runs via [`patchright`](https://www.npmjs.com/package/patchright), an undetected Playwright fork that closes the CDP automation leak Cloudflare uses to flag bots — this makes Cloudflare score the session as trustworthy and **auto-issue the Turnstile token**, no challenge-solving needed. If a token isn't auto-issued, a managed human-like click on the checkbox is attempted as a fallback; if that also fails, the run throws.
 
-1. **Stealth** — the browser is launched via [`playwright-extra`](https://www.npmjs.com/package/playwright-extra) + [`puppeteer-extra-plugin-stealth`](https://www.npmjs.com/package/puppeteer-extra-plugin-stealth) (Chromium only). Patches typical automation fingerprints (`navigator.webdriver`, WebRTC, etc.) to reduce the chance that a CAPTCHA is presented in the first place.
-2. **Offline solver** — when a reCAPTCHA still appears, [`recaptcha-solver`](https://www.npmjs.com/package/recaptcha-solver) uses the audio challenge and an offline Vosk speech-to-text model to solve it automatically. Requires `ffmpeg` on the system PATH (already installed in the Docker image).
+An older reCAPTCHA v2 audio solver ([`recaptcha-solver`](https://www.npmjs.com/package/recaptcha-solver), offline Vosk speech-to-text, requires `ffmpeg` on PATH) is kept in the codebase for reference but is no longer wired into the login flow.
 
 ## Contributing
 

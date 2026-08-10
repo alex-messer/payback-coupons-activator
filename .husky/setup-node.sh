@@ -1,19 +1,5 @@
-# Ensure the right Node.js version is on PATH for husky hooks.
-#
-# Husky hooks run via `sh -e` from a non-interactive environment, so any
-# nvm setup that lives in ~/.bashrc / ~/.zshrc is NOT loaded. On systems
-# where the distro provides an old `node` binary (e.g. Ubuntu 20.04 ships
-# Node 10), the hook would resolve `node` to that obsolete version and
-# fail to run modern dev tooling like lint-staged or commitlint.
-#
-# This script:
-#   1. Sources nvm (if installed) so `nvm` and `node` are usable
-#   2. Activates Node 24 (matches package.json#engines.node), or nvm's default
-#   3. Force-prepends the active Node bin dir to PATH, since some nvm
-#      versions skip that step in non-interactive shells
-#
-# Sourced from .husky/pre-commit and .husky/commit-msg.
-# Silently no-ops on machines without nvm, leaving the system Node in place.
+# Puts nvm's Node 24 on PATH for husky hooks (non-interactive shells skip ~/.bashrc's nvm setup).
+# No-ops if nvm isn't installed.
 
 NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 export NVM_DIR
