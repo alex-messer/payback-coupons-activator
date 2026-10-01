@@ -7,10 +7,6 @@ const MIN_TOKEN_LENGTH = 20;
 // Checkbox center, relative to the ~300x65px iframe's top-left corner.
 const CHECKBOX_OFFSET_X = 30;
 const CHECKBOX_OFFSET_Y = 32;
-const CURSOR_APPROACH_OFFSET = 80; // px the cursor starts from before moving to the click point
-const MOUSE_MOVE_STEPS = 24;
-const PRE_MOVE_DELAY_MS = 120;
-const PRE_CLICK_DELAY_MS = 180;
 
 const FRAME_APPEAR_TIMEOUT_MS = 15_000;
 const FRAME_POLL_INTERVAL_MS = 250;
@@ -48,13 +44,15 @@ export class TurnstileService {
         return false;
       }
 
-      const clickTarget = await this.locateCheckboxCenter();
-      if (!clickTarget) {
-        console.warn("Could not determine Turnstile checkbox coordinates from frame bounding box.");
-        return false;
-      }
+      const turnstileFrame = this.page.frames().find(frame => TURNSTILE_FRAME_URL_PATTERN.test(frame.url()));
+      if (!turnstileFrame) return false;
 
-      await this.performHumanClick(clickTarget.x, clickTarget.y);
+      // frame.locator("body").click() lets Playwright scroll the iframe into view automatically
+      // and dispatch input events through its own path — avoids the fixed-direction approach
+      // movement that manual page.mouse calls produce.
+      await turnstileFrame.locator("body").click({
+        position: { x: CHECKBOX_OFFSET_X, y: CHECKBOX_OFFSET_Y },
+      });
 
       const ok = await this.waitForToken();
       if (ok) {
@@ -70,51 +68,12 @@ export class TurnstileService {
     }
   }
 
-  private async locateCheckboxCenter(): Promise<{ x: number; y: number } | null> {
-    const turnstileFrame = this.page.frames().find(frame => TURNSTILE_FRAME_URL_PATTERN.test(frame.url()));
-    if (!turnstileFrame) return null;
-
-    let box: { x: number; y: number; width: number; height: number } | null = null;
-
-    // frameElement() is null in Chromium — the iframe sits in a closed shadow DOM there.
-    const frameElement = await turnstileFrame.frameElement().catch(() => null);
-    if (frameElement) {
-      box = await frameElement.boundingBox().catch(() => null);
-    }
-
-    // fallback: frame's <body> bounding box, already in top-level page coordinates
-    if (!box) {
-      box = await turnstileFrame
-        .locator("body")
-        .boundingBox()
-        .catch(() => null);
-    }
-
-    if (!box) return null;
-
-    return {
-      x: box.x + CHECKBOX_OFFSET_X,
-      y: box.y + CHECKBOX_OFFSET_Y,
-    };
-  }
-
-  private async performHumanClick(x: number, y: number): Promise<void> {
-    const approachX = Math.max(0, x - CURSOR_APPROACH_OFFSET);
-    const approachY = Math.max(0, y - CURSOR_APPROACH_OFFSET);
-
-    await this.page.mouse.move(approachX, approachY);
-    await this.page.waitForTimeout(PRE_MOVE_DELAY_MS);
-    await this.page.mouse.move(x, y, { steps: MOUSE_MOVE_STEPS });
-    await this.page.waitForTimeout(PRE_CLICK_DELAY_MS);
-    await this.page.mouse.click(x, y);
-  }
-
   private waitForTurnstileFrame(): Promise<boolean> {
     return this.pollUntil(() => this.isPresent(), FRAME_APPEAR_TIMEOUT_MS, FRAME_POLL_INTERVAL_MS);
   }
 
-  private waitForToken(): Promise<boolean> {
-    return this.pollUntil(() => this.hasToken(), TOKEN_POLL_TIMEOUT_MS, TOKEN_POLL_INTERVAL_MS);
+  waitForToken(timeoutMs = TOKEN_POLL_TIMEOUT_MS): Promise<boolean> {
+    return this.pollUntil(() => this.hasToken(), timeoutMs, TOKEN_POLL_INTERVAL_MS);
   }
 
   private async pollUntil(predicate: () => Promise<boolean>, timeoutMs: number, intervalMs: number): Promise<boolean> {

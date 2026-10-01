@@ -14,11 +14,11 @@ Runs require credentials in `.env.local` (copy from `.env`). Both files are load
 
 ```sh
 npm run activatePaybackCoupons          # Main run (browser is always visible, see Commands note above)
-npm run activatePaybackCoupons:debug    # Playwright inspector
+npm run activatePaybackCoupons:debug    # Playwright inspector — NOTE: incompatible with Patchright (Inspector's CDP conflicts with Patchright's CDP patch); use IDE breakpoints instead
 
 npm run smoke                           # Run all smoke tests in src/__smoke__/
 npm run smoke:headed
-node --env-file=.env node_modules/.bin/playwright test src/__smoke__/stealth.spec.ts   # Single smoke test
+node --env-file=.env node_modules/@playwright/test/cli.js test src/__smoke__/stealth.spec.ts   # Single smoke test
 
 npm run check:eslint                    # Lint
 npm run check:prettier                  # Format check
@@ -32,12 +32,12 @@ Husky hooks (`pre-commit` runs `lint-staged`, `commit-msg` runs commitlint with 
 
 The flow is a single Playwright test (`src/index.spec.ts`) wired together from three layers:
 
-**1. Browser fixture** (`src/fixtures/browser.fixture.ts`) — overrides Playwright's default browser launch. It uses **Patchright** (`patchright` package, an undetected Chromium-only Playwright fork) via `chromium.launchPersistentContext`. Per Patchright's guidance, maximum stealth needs the real Chrome channel and a headful window with no viewport override, so the options are exactly `channel: "chrome"`, `headless: false`, `viewport: null` — and we deliberately add NO custom userAgent, args, or init scripts (each would re-introduce a detectable signal). Headful means the browser needs a real display (an X/Wayland session, or a virtual one such as `Xvfb`/WSLg). Because the fixture creates its own persistent context, the `use` options in `playwright.config.ts` (viewport/device) are NOT applied — the config's project entry only sets the test label. The fixture overrides the `context` fixture (reusing `browser.contexts()[0]`); the user-data-dir is a throwaway temp dir cleaned up on teardown.
+**1. Browser fixture** (`src/fixtures/browser.fixture.ts`) — overrides Playwright's default browser launch. It uses **Patchright** (`patchright` package, an undetected Chromium-only Playwright fork) via `chromium.launchPersistentContext`. Per Patchright's guidance, maximum stealth needs the real Chrome channel and a headful window with no viewport override, so the options are exactly `channel: "chrome"`, `headless: false`, `viewport: null` — and we deliberately add NO custom userAgent, args, or init scripts (each would re-introduce a detectable signal). Headful means the browser needs a real display (an X/Wayland session, or a virtual one such as `Xvfb`/WSLg). Because the fixture creates its own persistent context, the `use` options in `playwright.config.ts` (viewport/device) are NOT applied — the config's project entry only sets the test label. The fixture overrides the `context` fixture (reusing `browser.contexts()[0]`); the user-data-dir is a persistent profile at `~/.payback-coupons-activator/chrome-profile`, kept across runs so Cloudflare trust (cf_clearance) and a still-valid PayBack session carry over (login is skipped when the session is active). Delete that directory only if the profile is corrupted.
 
 **2. Page objects** (`src/pages/`) — encapsulate the two PayBack screens the script touches.
 
 - `login.page.ts`: Two-step login (identification → password). On the identification step PayBack injects a Cloudflare Turnstile widget. `solveTurnstileAndSubmit()` presses Enter on the email field to trigger the widget, hands off to `TurnstileService` (with Patchright the token is normally issued automatically — see below), then clicks **"Weiter"** to advance. `waitForPasswordStep()` polls for the password field, re-handling Turnstile if it re-appears. The password step is submitted by clicking the **"Einloggen"** button (NOT Enter — Enter does not submit and leaves the page on `/login`). `waitForLoginComplete()` then polls until the URL leaves `/login`, re-handling any Turnstile on the password step. `LOGIN_TIMEOUT` = 5 min tolerates slow steps.
-- `coupon.page.ts`: Activates not-yet-activated coupons identified by `data-testid="coupon-button-*-not_activated"`, clicking them one by one (75ms wait between clicks) until none are left — no batching or periodic reload. Returns the running total.
+- `coupon.page.ts`: Activates not-yet-activated coupons identified by `data-testid="coupon-button-*-not_activated"`, clicking them one by one (75ms wait between clicks) until none are left — no batching or periodic reload. Each click has a 10 s timeout and the coupon must disappear from the not-activated set afterwards; stuck coupons are logged and skipped (not retried), and the same coupon may appear twice in the DOM, so the first match is clicked. Returns the running total.
 
 **3. Services** (`src/services/`)
 

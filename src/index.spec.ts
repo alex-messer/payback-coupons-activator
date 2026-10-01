@@ -9,7 +9,11 @@ test("activate PayBack coupons", async ({ page }) => {
   const telegram = new TelegramService();
 
   try {
-    const loginPage = new LoginPage(page);
+    const loginPage = new LoginPage(page, () =>
+      telegram.send(
+        "*PAYBACK Coupons*\nCloudflare Turnstile — bitte Checkbox im Browser manuell lösen (Fenster öffnen).",
+      ),
+    );
     await loginPage.navigate();
     await loginPage.dismissCookieConsent();
     await loginPage.login(userEmailOrId, userPassword);
@@ -34,7 +38,5 @@ test("activate PayBack coupons", async ({ page }) => {
     const message = error instanceof Error ? error.message : String(error);
     await telegram.send(`*PAYBACK Coupons — Fehler*\n${message.slice(0, 500)}`);
     throw error;
-  } finally {
-    await page.context().browser()?.close();
   }
 });

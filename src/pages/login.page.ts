@@ -23,19 +23,36 @@ const Selectors = {
 export class LoginPage {
   private readonly turnstile: TurnstileService;
 
-  constructor(private readonly page: Page) {
+  constructor(
+    private readonly page: Page,
+    private readonly onManualTurnstileRequired?: () => Promise<void>,
+  ) {
     this.turnstile = new TurnstileService(page);
   }
 
   async navigate(): Promise<void> {
+    // Brief homepage visit before login so the session has some browsing history,
+    // which improves Cloudflare's trust score for the Turnstile widget.
+    await this.page.goto(BASE_URL);
+    await this.page.waitForTimeout(1_500);
     await this.page.goto(`${BASE_URL}${LOGIN_PATH}`);
   }
 
   async dismissCookieConsent(): Promise<void> {
-    await this.page.locator(Selectors.acceptAllCooies).click();
+    // May not appear if already accepted in a previous run (persistent profile).
+    await this.page
+      .locator(Selectors.acceptAllCooies)
+      .click({ timeout: 5_000 })
+      .catch(() => {});
   }
 
   async login(emailOrId: string, password: string): Promise<void> {
+    // Persistent profile may carry a still-valid PayBack session.
+    if (!this.isOnLoginPath()) {
+      console.log("Session still active from previous run — skipping login.");
+      return;
+    }
+
     await this.fillIdentification(emailOrId);
     await this.solveTurnstileAndSubmit();
     await this.waitForPasswordStep(emailOrId);
@@ -62,7 +79,11 @@ export class LoginPage {
 
     const solved = await this.turnstile.solveIfPresent();
     if (!solved) {
-      throw new Error(TURNSTILE_FAILED_MESSAGE);
+      console.warn("Automated Turnstile solve failed — solve the challenge in the browser window to continue.");
+      await this.onManualTurnstileRequired?.();
+      if (!(await this.turnstile.waitForToken(CAPTCHA_TIMEOUT))) {
+        throw new Error(TURNSTILE_FAILED_MESSAGE);
+      }
     }
 
     await this.page.getByRole("button", { name: Selectors.weiterButton }).click();
