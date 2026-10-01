@@ -10,7 +10,10 @@ The minimal required version of [Node](https://nodejs.org/en/download/) is 24 an
 ```sh
 cd payback-coupons-activator
 npm install
+npx patchright install chrome
 ```
+
+The browser is driven by [`patchright`](https://www.npmjs.com/package/patchright) and needs **real Google Chrome** (installed by the command above). For full stealth it always runs **headful**, so the machine needs a display (a normal desktop session, WSLg on WSL2, or a virtual one such as `Xvfb`).
 
 ## Usage
 
@@ -46,15 +49,15 @@ npm run activatePaybackCoupons
 
 ### Debugging
 
-```sh
-npm run activatePaybackCoupons:debug
-```
+Use IDE breakpoints. `npm run activatePaybackCoupons:debug` (Playwright Inspector) is **incompatible with Patchright**: the Inspector's CDP usage conflicts with Patchright's CDP patch.
 
 ### Bot detection & CAPTCHA handling
 
-PayBack's login is gated by a Cloudflare Turnstile widget. The browser runs via [`patchright`](https://www.npmjs.com/package/patchright), an undetected Playwright fork that closes the CDP automation leak Cloudflare uses to flag bots — this makes Cloudflare score the session as trustworthy and **auto-issue the Turnstile token**, no challenge-solving needed. If a token isn't auto-issued, a managed human-like click on the checkbox is attempted as a fallback; if that also fails, the run throws.
+PayBack's login is gated by a Cloudflare Turnstile widget. The browser runs via [`patchright`](https://www.npmjs.com/package/patchright), an undetected Playwright fork that closes the CDP automation leak Cloudflare uses to flag bots — this makes Cloudflare score the session as trustworthy and **auto-issue the Turnstile token**, no challenge-solving needed. If a token isn't auto-issued, a click on the checkbox is attempted as a fallback. If that also fails, you get a Telegram notice (when configured) and 2 minutes to solve the widget manually in the open browser window; if no token appears, the run throws.
 
-An older reCAPTCHA v2 audio solver ([`recaptcha-solver`](https://www.npmjs.com/package/recaptcha-solver), offline Vosk speech-to-text, requires `ffmpeg` on PATH) is kept in the codebase for reference but is no longer wired into the login flow.
+The Chrome profile is persistent (`~/.payback-coupons-activator/chrome-profile`), so Cloudflare trust and a still-valid PayBack session carry over between runs; login is skipped when the session is active. Delete that directory only if the profile gets corrupted.
+
+An older reCAPTCHA v2 audio solver ([`recaptcha-solver`](https://www.npmjs.com/package/recaptcha-solver), offline Vosk speech-to-text, requires `ffmpeg` on PATH) is kept in the codebase for reference but is no longer wired into the login flow. Only its smoke test (`npm run smoke`) still checks the toolchain, so that test fails if `ffmpeg` is missing — this does not affect the normal run.
 
 ## Contributing
 
