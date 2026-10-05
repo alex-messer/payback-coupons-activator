@@ -13,6 +13,12 @@ const FRAME_POLL_INTERVAL_MS = 250;
 const TOKEN_POLL_TIMEOUT_MS = 30_000;
 const TOKEN_POLL_INTERVAL_MS = 500;
 
+// The iframe URL shows up before the checkbox inside it has rendered; a click that early lands on
+// nothing. Give the widget time to render (and to auto-issue a token) before clicking, then retry.
+const WIDGET_SETTLE_MS = 3_000;
+const CLICK_ATTEMPTS = 3;
+const TOKEN_POLL_AFTER_CLICK_MS = 10_000;
+
 // No solver here — relies on Patchright's stealth to get an auto-issued token; the managed
 // click below is just a fallback. Never throws; failures surface as false for the caller to poll on.
 export class TurnstileService {
@@ -44,22 +50,29 @@ export class TurnstileService {
         return false;
       }
 
-      const turnstileFrame = this.page.frames().find(frame => TURNSTILE_FRAME_URL_PATTERN.test(frame.url()));
-      if (!turnstileFrame) return false;
-
-      // frame.locator("body").click() lets Playwright scroll the iframe into view automatically
-      // and dispatch input events through its own path — avoids the fixed-direction approach
-      // movement that manual page.mouse calls produce.
-      await turnstileFrame.locator("body").click({
-        position: { x: CHECKBOX_OFFSET_X, y: CHECKBOX_OFFSET_Y },
-      });
-
-      const ok = await this.waitForToken();
-      if (ok) {
-        console.log("Turnstile cleared — token issued.");
+      // Frame appeared — let the widget render; Patchright's stealth often gets the token issued meanwhile.
+      if (await this.waitForToken(WIDGET_SETTLE_MS)) {
+        console.log("Turnstile cleared — token auto-issued.");
         return true;
       }
-      console.warn("Turnstile click completed but no token was issued within the polling window.");
+
+      for (let attempt = 1; attempt <= CLICK_ATTEMPTS; attempt++) {
+        const turnstileFrame = this.page.frames().find(frame => TURNSTILE_FRAME_URL_PATTERN.test(frame.url()));
+        if (!turnstileFrame) return false;
+
+        // frame.locator("body").click() lets Playwright scroll the iframe into view automatically
+        // and dispatch input events through its own path — avoids the fixed-direction approach
+        // movement that manual page.mouse calls produce.
+        await turnstileFrame.locator("body").click({
+          position: { x: CHECKBOX_OFFSET_X, y: CHECKBOX_OFFSET_Y },
+        });
+
+        if (await this.waitForToken(TOKEN_POLL_AFTER_CLICK_MS)) {
+          console.log("Turnstile cleared — token issued.");
+          return true;
+        }
+        console.warn(`Turnstile click ${attempt}/${CLICK_ATTEMPTS} did not yield a token.`);
+      }
       return false;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

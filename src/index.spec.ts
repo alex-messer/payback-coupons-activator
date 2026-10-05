@@ -7,6 +7,7 @@ test("activate PayBack coupons", async ({ page }) => {
   const userEmailOrId = process.env.userEmailOrId as string;
   const userPassword = process.env.userPassword as string;
   const telegram = new TelegramService();
+  const couponPage = new CouponPage(page);
 
   try {
     const loginPage = new LoginPage(page, () =>
@@ -18,7 +19,6 @@ test("activate PayBack coupons", async ({ page }) => {
     await loginPage.dismissCookieConsent();
     await loginPage.login(userEmailOrId, userPassword);
 
-    const couponPage = new CouponPage(page);
     await couponPage.navigate();
 
     const totalBefore = await couponPage.countAvailableCoupons();
@@ -36,7 +36,8 @@ test("activate PayBack coupons", async ({ page }) => {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await telegram.send(`*PAYBACK Coupons — Fehler*\n${message.slice(0, 500)}`);
+    const partial = couponPage.activatedCount > 0 ? `\nBis dahin ${couponPage.activatedCount} Coupons aktiviert.` : "";
+    await telegram.send(`*PAYBACK Coupons — Fehler*\n${message.slice(0, 500)}${partial}`);
     throw error;
   }
 });
