@@ -22,12 +22,16 @@ export class CouponPage {
   // Running total across page reloads; stays readable if activateAllCoupons() throws midway.
   activatedCount = 0;
 
-  async activateAllCoupons(): Promise<number> {
+  // Stops after `limit` activations in this call (the caller then restarts the browser process).
+  async activateAllCoupons(limit = Number.POSITIVE_INFINITY): Promise<number> {
     const buttons = this.page.locator(Selectors.notActivatedButton);
     const failed = new Set<string>();
+    const startCount = this.activatedCount;
     let activatedSinceReload = 0;
 
     for (;;) {
+      if (this.activatedCount - startCount >= limit) break;
+
       // PayBack slows down / stops rendering coupons after many clicks, so reload periodically.
       if (activatedSinceReload >= RELOAD_EVERY) {
         console.log(`${this.activatedCount} Coupons aktiviert — lade Seite neu.`);
@@ -54,8 +58,6 @@ export class CouponPage {
           `Coupon übersprungen: ${nextId} — ${error instanceof Error ? error.message.split("\n")[0] : error}`,
         );
       }
-
-      await this.page.waitForTimeout(75);
     }
 
     return this.activatedCount;

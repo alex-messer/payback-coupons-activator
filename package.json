@@ -25,7 +25,7 @@
   ],
   "main": "src/index.spec.ts",
   "scripts": {
-    "activatePaybackCoupons": "node --env-file=.env --env-file=.env.local node_modules/@playwright/test/cli.js test src/index.spec.ts",
+    "activatePaybackCoupons": "node --env-file=.env --env-file=.env.local scripts/run-activation.mjs",
     "activatePaybackCoupons:debug": "node --env-file=.env --env-file=.env.local node_modules/@playwright/test/cli.js test src/index.spec.ts --debug",
     "smoke": "node --env-file=.env node_modules/@playwright/test/cli.js test src/__smoke__",
     "smoke:headed": "node --env-file=.env node_modules/@playwright/test/cli.js test src/__smoke__ --headed",
