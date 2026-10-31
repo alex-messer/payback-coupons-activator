@@ -49,7 +49,8 @@ function challengeHtml(frame: FrameMode) {
     frame === "solves-on-click"
       ? 'document.body.addEventListener("click", () => parent.postMessage("clicked", "*"));'
       : "";
-  return `<!doctype html><html><body style="margin:0"><script>${script}</script></body></html>`;
+  // Real widget body has the size of the checkbox; an empty body has no box and can never be clicked.
+  return `<!doctype html><html><body style="margin:0;width:300px;height:65px"><script>${script}</script></body></html>`;
 }
 
 async function openSite(

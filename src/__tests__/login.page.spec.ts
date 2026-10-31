@@ -53,7 +53,12 @@ ${challengeFrame ? `<iframe src="${FRAME_URL}" width="300" height="65"></iframe>
 </div>
 <script>
   document.getElementById("einloggen").addEventListener("click", () => {
-    if (${loginSucceeds}) location.href = "/konto";
+    // The submitted values travel in the query string so tests can assert what was typed (test-only mock).
+    if (${loginSucceeds}) {
+      const email = encodeURIComponent(document.getElementById("email").value);
+      const password = encodeURIComponent(document.getElementById("password").value);
+      location.href = "/konto?email=" + email + "&password=" + password;
+    }
   });
 </script></body></html>`;
 
@@ -126,9 +131,10 @@ test.describe("login", () => {
       "geheim",
     );
 
-    expect(new URL(page.url()).pathname).toBe("/konto");
-    expect(await page.inputValue("#email")).toBe("kunde-123");
-    expect(await page.inputValue("#password")).toBe("geheim");
+    const landed = new URL(page.url());
+    expect(landed.pathname).toBe("/konto");
+    expect(landed.searchParams.get("email")).toBe("kunde-123");
+    expect(landed.searchParams.get("password")).toBe("geheim");
   });
 
   test("skips the login entirely when the persistent session is still active", async ({ page }) => {
