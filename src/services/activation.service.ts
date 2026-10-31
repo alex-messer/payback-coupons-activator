@@ -43,14 +43,8 @@ export async function runActivation({
     const total = ((await readRunState(stateFile))?.total ?? 0) + activated;
     await writeRunState({ status: restart ? "batch_limit" : "done", total }, stateFile);
 
-    if (restart) {
-      await telegram.send(
-        `*PAYBACK Coupons*\n${batchLimit} Coupons aktiviert (gesamt ${total}).\nBrowser wird geschlossen und der Prozess neu gestartet.`,
-      );
-    } else if (activated > 0) {
-      await telegram.send(
-        `*PAYBACK Coupons*\n${activated} Coupons aktiviert (gesamt ${total}).${allDone ? "\nAlle Coupons sind jetzt aktiviert." : ""}`,
-      );
+    if (restart || activated > 0) {
+      await telegram.send(`${total} PAYBACK Coupons wurden aktiviert.`);
     } else if (totalBefore > 0 && !allDone) {
       await telegram.send(
         `*PAYBACK Coupons*\n0 Coupons aktiviert, aber ${totalBefore} waren verfügbar. Mögliches Problem beim Aktivieren.`,

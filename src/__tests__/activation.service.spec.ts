@@ -76,9 +76,7 @@ test("a full batch returns with restart status, a restart message and the batch 
   expect(couponPage.navigations).toBe(1);
   expect(couponPage.limitsSeen).toEqual([BATCH]);
   expect(await readRunState(stateFile)).toEqual({ status: "batch_limit", total: BATCH });
-  expect(telegram.messages).toEqual([
-    "*PAYBACK Coupons*\n100 Coupons aktiviert (gesamt 100).\nBrowser wird geschlossen und der Prozess neu gestartet.",
-  ]);
+  expect(telegram.messages).toEqual(["100 PAYBACK Coupons wurden aktiviert."]);
 });
 
 test("a partial batch that empties the list reports completion and does not restart", async () => {
@@ -94,9 +92,7 @@ test("a partial batch that empties the list reports completion and does not rest
 
   expect(activated).toBe(40);
   expect(await readRunState(stateFile)).toEqual({ status: "done", total: 40 });
-  expect(telegram.messages).toEqual([
-    "*PAYBACK Coupons*\n40 Coupons aktiviert (gesamt 40).\nAlle Coupons sind jetzt aktiviert.",
-  ]);
+  expect(telegram.messages).toEqual(["40 PAYBACK Coupons wurden aktiviert."]);
 });
 
 test("exactly one batch that also empties the list does not restart", async () => {
@@ -111,8 +107,7 @@ test("exactly one batch that also empties the list does not restart", async () =
   });
 
   expect(await readRunState(stateFile)).toEqual({ status: "done", total: 100 });
-  expect(telegram.messages[0]).toContain("Alle Coupons sind jetzt aktiviert.");
-  expect(telegram.messages[0]).not.toContain("neu gestartet");
+  expect(telegram.messages).toEqual(["100 PAYBACK Coupons wurden aktiviert."]);
 });
 
 test("the running total accumulates across restarts via the state file", async () => {
@@ -137,7 +132,7 @@ test("the running total accumulates across restarts via the state file", async (
   });
 
   expect(await readRunState(stateFile)).toEqual({ status: "done", total: 75 });
-  expect(telegram.messages[0]).toContain("(gesamt 75)");
+  expect(telegram.messages).toEqual(["75 PAYBACK Coupons wurden aktiviert."]);
 });
 
 test("nothing available sends no message and records done with total 0", async () => {
