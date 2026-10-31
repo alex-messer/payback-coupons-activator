@@ -8,21 +8,39 @@ const MIN_TOKEN_LENGTH = 20;
 const CHECKBOX_OFFSET_X = 30;
 const CHECKBOX_OFFSET_Y = 32;
 
-const FRAME_APPEAR_TIMEOUT_MS = 15_000;
-const FRAME_POLL_INTERVAL_MS = 250;
-const TOKEN_POLL_TIMEOUT_MS = 30_000;
-const TOKEN_POLL_INTERVAL_MS = 500;
+export type TurnstileTimings = {
+  frameAppearTimeoutMs: number;
+  framePollIntervalMs: number;
+  tokenPollTimeoutMs: number;
+  tokenPollIntervalMs: number;
+  // The iframe URL shows up before the checkbox inside it has rendered; a click that early lands on
+  // nothing. Give the widget time to render (and to auto-issue a token) before clicking, then retry.
+  widgetSettleMs: number;
+  clickAttempts: number;
+  tokenPollAfterClickMs: number;
+};
 
-// The iframe URL shows up before the checkbox inside it has rendered; a click that early lands on
-// nothing. Give the widget time to render (and to auto-issue a token) before clicking, then retry.
-const WIDGET_SETTLE_MS = 3_000;
-const CLICK_ATTEMPTS = 3;
-const TOKEN_POLL_AFTER_CLICK_MS = 10_000;
+export const DEFAULT_TURNSTILE_TIMINGS: TurnstileTimings = {
+  frameAppearTimeoutMs: 15_000,
+  framePollIntervalMs: 250,
+  tokenPollTimeoutMs: 30_000,
+  tokenPollIntervalMs: 500,
+  widgetSettleMs: 3_000,
+  clickAttempts: 3,
+  tokenPollAfterClickMs: 10_000,
+};
 
 // No solver here — relies on Patchright's stealth to get an auto-issued token; the managed
 // click below is just a fallback. Never throws; failures surface as false for the caller to poll on.
 export class TurnstileService {
-  constructor(private readonly page: Page) {}
+  private readonly timings: TurnstileTimings;
+
+  constructor(
+    private readonly page: Page,
+    timings: Partial<TurnstileTimings> = {},
+  ) {
+    this.timings = { ...DEFAULT_TURNSTILE_TIMINGS, ...timings };
+  }
 
   // page.frames() over a selector probe: Turnstile's iframe lives in a closed shadow DOM.
   async isPresent(): Promise<boolean> {
@@ -51,12 +69,12 @@ export class TurnstileService {
       }
 
       // Frame appeared — let the widget render; Patchright's stealth often gets the token issued meanwhile.
-      if (await this.waitForToken(WIDGET_SETTLE_MS)) {
+      if (await this.waitForToken(this.timings.widgetSettleMs)) {
         console.log("Turnstile cleared — token auto-issued.");
         return true;
       }
 
-      for (let attempt = 1; attempt <= CLICK_ATTEMPTS; attempt++) {
+      for (let attempt = 1; attempt <= this.timings.clickAttempts; attempt++) {
         const turnstileFrame = this.page.frames().find(frame => TURNSTILE_FRAME_URL_PATTERN.test(frame.url()));
         if (!turnstileFrame) return false;
 
@@ -67,11 +85,11 @@ export class TurnstileService {
           position: { x: CHECKBOX_OFFSET_X, y: CHECKBOX_OFFSET_Y },
         });
 
-        if (await this.waitForToken(TOKEN_POLL_AFTER_CLICK_MS)) {
+        if (await this.waitForToken(this.timings.tokenPollAfterClickMs)) {
           console.log("Turnstile cleared — token issued.");
           return true;
         }
-        console.warn(`Turnstile click ${attempt}/${CLICK_ATTEMPTS} did not yield a token.`);
+        console.warn(`Turnstile click ${attempt}/${this.timings.clickAttempts} did not yield a token.`);
       }
       return false;
     } catch (error) {
@@ -82,11 +100,11 @@ export class TurnstileService {
   }
 
   private waitForTurnstileFrame(): Promise<boolean> {
-    return this.pollUntil(() => this.isPresent(), FRAME_APPEAR_TIMEOUT_MS, FRAME_POLL_INTERVAL_MS);
+    return this.pollUntil(() => this.isPresent(), this.timings.frameAppearTimeoutMs, this.timings.framePollIntervalMs);
   }
 
-  waitForToken(timeoutMs = TOKEN_POLL_TIMEOUT_MS): Promise<boolean> {
-    return this.pollUntil(() => this.hasToken(), timeoutMs, TOKEN_POLL_INTERVAL_MS);
+  waitForToken(timeoutMs = this.timings.tokenPollTimeoutMs): Promise<boolean> {
+    return this.pollUntil(() => this.hasToken(), timeoutMs, this.timings.tokenPollIntervalMs);
   }
 
   private async pollUntil(predicate: () => Promise<boolean>, timeoutMs: number, intervalMs: number): Promise<boolean> {

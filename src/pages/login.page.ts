@@ -1,13 +1,34 @@
 import { type Page } from "@playwright/test";
-import { TurnstileService } from "../services/turnstile.service";
+import { TurnstileService, type TurnstileTimings } from "../services/turnstile.service";
 
 const BASE_URL = "https://www.payback.de";
 const LOGIN_PATH = "/login";
-const CAPTCHA_TIMEOUT = 120_000;
-const LOGIN_TIMEOUT = 5 * 60 * 1_000;
-const POST_CAPTCHA_DELAY = 2_000;
-const RELOAD_CHECK_INTERVAL = 1_000;
-const POST_SOLVE_SETTLE_TIMEOUT = 10_000;
+
+export type LoginTimings = {
+  captchaTimeoutMs: number;
+  loginTimeoutMs: number;
+  postCaptchaDelayMs: number;
+  reloadCheckIntervalMs: number;
+  postSolveSettleMs: number;
+  homepageDwellMs: number;
+  cookieClickTimeoutMs: number;
+};
+
+export const DEFAULT_LOGIN_TIMINGS: LoginTimings = {
+  captchaTimeoutMs: 2 * 60 * 1_000,
+  loginTimeoutMs: 5 * 60 * 1_000,
+  postCaptchaDelayMs: 2_000,
+  reloadCheckIntervalMs: 1_000,
+  postSolveSettleMs: 10_000,
+  homepageDwellMs: 1_500,
+  cookieClickTimeoutMs: 5_000,
+};
+
+export type LoginOptions = {
+  baseUrl?: string;
+  timings?: Partial<LoginTimings>;
+  turnstileTimings?: Partial<TurnstileTimings>;
+};
 
 const TURNSTILE_FAILED_MESSAGE =
   "Cloudflare Turnstile konnte nicht gelöst werden — die Session wurde von Cloudflare als Bot eingestuft.";
@@ -22,27 +43,32 @@ const Selectors = {
 
 export class LoginPage {
   private readonly turnstile: TurnstileService;
+  private readonly timings: LoginTimings;
+  private readonly baseUrl: string;
 
   constructor(
     private readonly page: Page,
     private readonly onManualTurnstileRequired?: () => Promise<void>,
+    options: LoginOptions = {},
   ) {
-    this.turnstile = new TurnstileService(page);
+    this.timings = { ...DEFAULT_LOGIN_TIMINGS, ...options.timings };
+    this.baseUrl = options.baseUrl ?? BASE_URL;
+    this.turnstile = new TurnstileService(page, options.turnstileTimings);
   }
 
   async navigate(): Promise<void> {
     // Brief homepage visit before login so the session has some browsing history,
     // which improves Cloudflare's trust score for the Turnstile widget.
-    await this.page.goto(BASE_URL);
-    await this.page.waitForTimeout(1_500);
-    await this.page.goto(`${BASE_URL}${LOGIN_PATH}`);
+    await this.page.goto(this.baseUrl);
+    await this.page.waitForTimeout(this.timings.homepageDwellMs);
+    await this.page.goto(`${this.baseUrl}${LOGIN_PATH}`);
   }
 
   async dismissCookieConsent(): Promise<void> {
     // May not appear if already accepted in a previous run (persistent profile).
     await this.page
       .locator(Selectors.acceptAllCooies)
-      .click({ timeout: 5_000 })
+      .click({ timeout: this.timings.cookieClickTimeoutMs })
       .catch(() => {});
   }
 
@@ -56,7 +82,7 @@ export class LoginPage {
     await this.fillIdentification(emailOrId);
     await this.solveTurnstileAndSubmit();
     await this.waitForPasswordStep(emailOrId);
-    await this.page.waitForTimeout(POST_CAPTCHA_DELAY);
+    await this.page.waitForTimeout(this.timings.postCaptchaDelayMs);
 
     await this.turnstile.solveIfPresent(); // submit button stays disabled without a token
 
@@ -81,7 +107,7 @@ export class LoginPage {
     if (!solved) {
       console.warn("Automated Turnstile solve failed — solve the challenge in the browser window to continue.");
       await this.onManualTurnstileRequired?.();
-      if (!(await this.turnstile.waitForToken(CAPTCHA_TIMEOUT))) {
+      if (!(await this.turnstile.waitForToken(this.timings.captchaTimeoutMs))) {
         throw new Error(TURNSTILE_FAILED_MESSAGE);
       }
     }
@@ -91,7 +117,7 @@ export class LoginPage {
 
   private async waitForPasswordStep(emailOrId: string): Promise<void> {
     const passwordField = this.page.locator(Selectors.passwordInput);
-    const deadline = Date.now() + CAPTCHA_TIMEOUT;
+    const deadline = Date.now() + this.timings.captchaTimeoutMs;
 
     while (Date.now() < deadline) {
       if (await passwordField.isVisible().catch(() => false)) {
@@ -101,7 +127,7 @@ export class LoginPage {
       if (await this.turnstile.isPresent()) {
         const solved = await this.turnstile.solveIfPresent();
         if (solved) {
-          await passwordField.waitFor({ state: "visible", timeout: POST_SOLVE_SETTLE_TIMEOUT }).catch(() => {});
+          await passwordField.waitFor({ state: "visible", timeout: this.timings.postSolveSettleMs }).catch(() => {});
           continue;
         }
       }
@@ -115,7 +141,7 @@ export class LoginPage {
         }
       }
 
-      await this.page.waitForTimeout(RELOAD_CHECK_INTERVAL);
+      await this.page.waitForTimeout(this.timings.reloadCheckIntervalMs);
     }
 
     throw new Error("Timeout waiting for password step — was Turnstile solved?");
@@ -123,7 +149,7 @@ export class LoginPage {
 
   // Polls until URL leaves /login, handling any Turnstile that appears on the password step too.
   private async waitForLoginComplete(): Promise<void> {
-    const deadline = Date.now() + LOGIN_TIMEOUT;
+    const deadline = Date.now() + this.timings.loginTimeoutMs;
 
     while (Date.now() < deadline) {
       if (!this.isOnLoginPath()) {
@@ -134,13 +160,13 @@ export class LoginPage {
         const solved = await this.turnstile.solveIfPresent();
         if (solved) {
           await this.page
-            .waitForURL(url => !url.pathname.startsWith(LOGIN_PATH), { timeout: POST_SOLVE_SETTLE_TIMEOUT })
+            .waitForURL(url => !url.pathname.startsWith(LOGIN_PATH), { timeout: this.timings.postSolveSettleMs })
             .catch(() => {});
           continue;
         }
       }
 
-      await this.page.waitForTimeout(RELOAD_CHECK_INTERVAL);
+      await this.page.waitForTimeout(this.timings.reloadCheckIntervalMs);
     }
 
     throw new Error(

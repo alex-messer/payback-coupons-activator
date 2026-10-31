@@ -12,15 +12,15 @@ export type RunState = {
   total: number;
 };
 
-export async function readRunState(): Promise<RunState | undefined> {
+export async function readRunState(file: string = RUN_STATE_FILE): Promise<RunState | undefined> {
   try {
-    return JSON.parse(await readFile(RUN_STATE_FILE, "utf8")) as RunState;
+    return JSON.parse(await readFile(file, "utf8")) as RunState;
   } catch {
     return undefined;
   }
 }
 
-export async function writeRunState(state: RunState): Promise<void> {
-  await mkdir(dirname(RUN_STATE_FILE), { recursive: true });
-  await writeFile(RUN_STATE_FILE, JSON.stringify(state, null, 2), "utf8");
+export async function writeRunState(state: RunState, file: string = RUN_STATE_FILE): Promise<void> {
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, JSON.stringify(state, null, 2), "utf8");
 }

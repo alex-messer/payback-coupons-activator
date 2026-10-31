@@ -2,8 +2,20 @@ import { type Page } from "@playwright/test";
 
 const BASE_URL = "https://www.payback.de";
 const COUPON_PATH = "/coupons";
-const CLICK_TIMEOUT = 10_000;
-const RELOAD_EVERY = 50;
+
+export type CouponPageOptions = {
+  baseUrl?: string;
+  // Max wait for a click and for the button to flip to "...-activated". Stuck coupons are skipped after this.
+  clickTimeoutMs?: number;
+  // Reload the coupon page after this many activations (PayBack stops rendering coupons after many clicks).
+  reloadEvery?: number;
+};
+
+const DEFAULTS = {
+  baseUrl: BASE_URL,
+  clickTimeoutMs: 10_000,
+  reloadEvery: 50,
+} as const;
 
 const Selectors = {
   // eslint-disable-next-line quotes
@@ -13,10 +25,17 @@ const Selectors = {
 } as const;
 
 export class CouponPage {
-  constructor(private readonly page: Page) {}
+  private readonly options: Required<CouponPageOptions>;
+
+  constructor(
+    private readonly page: Page,
+    options: CouponPageOptions = {},
+  ) {
+    this.options = { ...DEFAULTS, ...options };
+  }
 
   async navigate(): Promise<void> {
-    await this.page.goto(`${BASE_URL}${COUPON_PATH}`);
+    await this.page.goto(`${this.options.baseUrl}${COUPON_PATH}`);
   }
 
   // Running total across page reloads; stays readable if activateAllCoupons() throws midway.
@@ -33,7 +52,7 @@ export class CouponPage {
       if (this.activatedCount - startCount >= limit) break;
 
       // PayBack slows down / stops rendering coupons after many clicks, so reload periodically.
-      if (activatedSinceReload >= RELOAD_EVERY) {
+      if (activatedSinceReload >= this.options.reloadEvery) {
         console.log(`${this.activatedCount} Coupons aktiviert — lade Seite neu.`);
         await this.navigate();
         activatedSinceReload = 0;
@@ -46,9 +65,9 @@ export class CouponPage {
       const selector = `[data-testid="${nextId}"]`;
       try {
         // The same coupon can be rendered more than once (e.g. carousel + list), so target the first match.
-        await this.page.locator(selector).first().click({ timeout: CLICK_TIMEOUT });
+        await this.page.locator(selector).first().click({ timeout: this.options.clickTimeoutMs });
         // The button flips to "...-activated" on success; a stuck one stays "not_activated".
-        await this.page.waitForSelector(selector, { state: "detached", timeout: CLICK_TIMEOUT });
+        await this.page.waitForSelector(selector, { state: "detached", timeout: this.options.clickTimeoutMs });
         this.activatedCount++;
         activatedSinceReload++;
         console.log(`Coupon ${this.activatedCount} aktiviert (${ids.length - 1} übrig): ${nextId}`);

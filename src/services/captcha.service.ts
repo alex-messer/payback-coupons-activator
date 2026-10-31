@@ -12,13 +12,28 @@ const TOKEN_SELECTOR = "#g-recaptcha-response, textarea[name='g-recaptcha-respon
 const CHALLENGE_FRAME_SELECTOR =
   "iframe[src^='https://www.google.com/recaptcha/api2/bframe'], " +
   "iframe[src^='https://www.google.com/recaptcha/enterprise/bframe']";
-const PRESENCE_CHECK_TIMEOUT = 2_000;
-// actionTimeout is 0 in our config, so bound recaptcha-solver's internal waitForSelector ourselves.
-const SOLVE_HARD_TIMEOUT = 60_000;
 
-// Offline reCAPTCHA v2 solver via Vosk audio speech-to-text (no API keys).
+export type CaptchaTimings = {
+  presenceCheckTimeoutMs: number;
+  // actionTimeout is 0 in our config, so bound recaptcha-solver's internal waitForSelector ourselves.
+  solveHardTimeoutMs: number;
+};
+
+export const DEFAULT_CAPTCHA_TIMINGS: CaptchaTimings = {
+  presenceCheckTimeoutMs: 2_000,
+  solveHardTimeoutMs: 60_000,
+};
+
+// Offline reCAPTCHA v2 solver via Vosk audio speech-to-text (no API keys). Legacy: not used by the login flow.
 export class CaptchaService {
-  constructor(private readonly page: Page) {}
+  private readonly timings: CaptchaTimings;
+
+  constructor(
+    private readonly page: Page,
+    timings: Partial<CaptchaTimings> = {},
+  ) {
+    this.timings = { ...DEFAULT_CAPTCHA_TIMINGS, ...timings };
+  }
 
   // recaptcha-solver's exists() is buggy (missing await), so we probe the challenge frame ourselves.
   async isPresent(): Promise<boolean> {
@@ -26,14 +41,14 @@ export class CaptchaService {
       await this.page
         .locator(CHALLENGE_FRAME_SELECTOR)
         .first()
-        .waitFor({ state: "visible", timeout: PRESENCE_CHECK_TIMEOUT });
+        .waitFor({ state: "visible", timeout: this.timings.presenceCheckTimeoutMs });
       return true;
     } catch {
       return false;
     }
   }
 
-  private async hasToken(): Promise<boolean> {
+  async hasToken(): Promise<boolean> {
     try {
       const token = await this.page.locator(TOKEN_SELECTOR).first().inputValue({ timeout: 1_000 });
       return token.length > 20;
@@ -77,7 +92,7 @@ export class CaptchaService {
   private async solveWithHardTimeout(): Promise<boolean> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new Error("solve hard-timeout reached")), SOLVE_HARD_TIMEOUT);
+      timer = setTimeout(() => reject(new Error("solve hard-timeout reached")), this.timings.solveHardTimeoutMs);
     });
     try {
       return await Promise.race([recaptchaSolve(this.page, SOLVE_OPTIONS), timeout]);

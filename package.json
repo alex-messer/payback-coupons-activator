@@ -29,6 +29,7 @@
     "activatePaybackCoupons:debug": "node --env-file=.env --env-file=.env.local node_modules/@playwright/test/cli.js test src/index.spec.ts --debug",
     "smoke": "node --env-file=.env node_modules/@playwright/test/cli.js test src/__smoke__",
     "smoke:headed": "node --env-file=.env node_modules/@playwright/test/cli.js test src/__smoke__ --headed",
+    "test": "playwright test src/__tests__",
     "check:eslint": "eslint src",
     "check:prettier": "prettier src --check",
     "lint:eslint": "eslint --fix src",
