@@ -37,12 +37,12 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{js,ts}": [
-      "eslint --fix src",
-      "prettier --write src"
+    "*.{js,mjs,ts}": [
+      "prettier --write",
+      "eslint --fix"
     ],
-    "*.{html,css,less,sass,css,md}": [
-      "prettier --write src"
+    "*.{html,css,less,sass,md}": [
+      "prettier --write"
     ]
   },
   "devDependencies": {

@@ -95,15 +95,14 @@ test.describe("navigate and cookie consent", () => {
   });
 
   test("dismissCookieConsent accepts the banner when it is shown", async ({ page }) => {
-    await mockHosts(page, url =>
-      url.origin === BASE
-        ? {
-            body: `<!doctype html><html><body>
+    await mockHosts(page, url => {
+      if (url.origin !== BASE) return undefined;
+      return {
+        body: `<!doctype html><html><body>
 <button id="onetrust-accept-btn-handler" onclick="window.accepted = true">Alle akzeptieren</button>
 </body></html>`,
-          }
-        : undefined,
-    );
+      };
+    });
     await page.goto(`${BASE}/login`);
 
     await new LoginPage(page, undefined, { timings: FAST_LOGIN }).dismissCookieConsent();

@@ -18,9 +18,8 @@ const DEFAULTS = {
 } as const;
 
 const Selectors = {
-  // eslint-disable-next-line quotes
   notActivatedButton: '[data-testid^="coupon-button-"][data-testid$="-not_activated"]',
-  // eslint-disable-next-line quotes
+
   noCouponsHeadline: '[data-testid="not-activated-coupons-headline"]',
 } as const;
 
