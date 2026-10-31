@@ -61,5 +61,8 @@
   },
   "dependencies": {
     "patchright": "^1.63.0"
+  },
+  "overrides": {
+    "follow-redirects": "1.16.1"
   }
 }
