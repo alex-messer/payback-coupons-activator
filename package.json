@@ -61,5 +61,8 @@
   },
   "dependencies": {
     "patchright": "^1.63.0"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.12"
   }
 }
