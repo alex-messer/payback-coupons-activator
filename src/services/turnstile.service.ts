@@ -7,6 +7,8 @@ const MIN_TOKEN_LENGTH = 20;
 // Checkbox center, relative to the ~300x65px iframe's top-left corner.
 const CHECKBOX_OFFSET_X = 30;
 const CHECKBOX_OFFSET_Y = 32;
+// The config sets actionTimeout to 0 (no limit). Without this bound a click on an empty or hidden widget would wait forever.
+const CHECKBOX_CLICK_TIMEOUT_MS = 10_000;
 
 export type TurnstileTimings = {
   frameAppearTimeoutMs: number;
@@ -83,6 +85,7 @@ export class TurnstileService {
         // movement that manual page.mouse calls produce.
         await turnstileFrame.locator("body").click({
           position: { x: CHECKBOX_OFFSET_X, y: CHECKBOX_OFFSET_Y },
+          timeout: CHECKBOX_CLICK_TIMEOUT_MS,
         });
 
         if (await this.waitForToken(this.timings.tokenPollAfterClickMs)) {
